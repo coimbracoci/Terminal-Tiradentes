@@ -1,23 +1,32 @@
 import os
-import webbrowser
-import threading
+import time
 import requests
 from flask import Flask, jsonify, request, send_file
 from dotenv import load_dotenv
 
-# Carrega o .env exatamente da pasta onde o app.py está salvo
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ENV_PATH = os.path.join(BASE_DIR, ".env")
-load_dotenv(dotenv_path=ENV_PATH, override=True)
+load_dotenv(dotenv_path=os.path.join(BASE_DIR, ".env"), override=True)
 
 SPTRANS_TOKEN = os.getenv("SPTRANS_TOKEN", "").strip().strip('"').strip("'")
-print(f"[DEBUG .ENV] Arquivo: {ENV_PATH} | Encontrado? {os.path.exists(ENV_PATH)} | Tamanho do token: {len(SPTRANS_TOKEN)} caracteres")
 
 app = Flask(__name__)
 BASE_URL = "http://api.olhovivo.sptrans.com.br/v2.1"
 
+# Whitelist estrita: apenas as 27 linhas do Terminal Cidade Tiradentes são aceitas
+LINHAS_PERMITIDAS = {
+    "3013-10", "3019-10", "3064-10", "3064-41", "312N-10", "3539-10",
+    "3785-10", "3787-10", "3789-10", "4004-10", "4005-10", "4017-10",
+    "4018-10", "407L-10", "407N-10", "407P-10", "4086-10", "4092-10",
+    "4093-10", "4210-10", "4313-10", "N403-11", "N406-11", "N435-11",
+    "N436-11", "N437-11", "N441-11"
+}
+
 sptrans_session = requests.Session()
 autenticado = False
+
+# Cache em memória para proteger seu token SPTrans contra múltiplos acessos simultâneos
+CACHE_GPS = {}
+CACHE_TTL = 15  # segundos
 
 
 def garantir_login():
@@ -25,7 +34,7 @@ def garantir_login():
     if autenticado:
         return True
     if not SPTRANS_TOKEN:
-        raise ValueError(f"SPTRANS_TOKEN vazio ou ausente em: {ENV_PATH}")
+        raise ValueError("SPTRANS_TOKEN não configurado no servidor.")
 
     resp = sptrans_session.post(
         f"{BASE_URL}/Login/Autenticar",
@@ -37,6 +46,15 @@ def garantir_login():
     return autenticado
 
 
+@app.after_request
+def adicionar_cabecalhos_seguranca(response):
+    # Protege contra Clickjacking (impede que coloquem seu site dentro de um iframe malicioso)
+    response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    # Impede o navegador de adivinhar tipos de arquivo perigosos
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
 @app.route("/")
 def index():
     return send_file(os.path.join(BASE_DIR, "index.html"))
@@ -45,14 +63,27 @@ def index():
 @app.route("/api/olhovivo")
 def olhovivo():
     global autenticado
-    linha_filtro = request.args.get("linha", "").strip()
+    linha_filtro = request.args.get("linha", "").strip().upper()
     sentido_filtro = request.args.get("sentido", "").strip()
+
+    # 1. Bloqueia qualquer linha fora do Terminal Cidade Tiradentes ou sentido inválido
+    if linha_filtro not in LINHAS_PERMITIDAS:
+        return jsonify({"error": "Linha não autorizada ou inválida."}), 400
+    if sentido_filtro not in {"1", "2"}:
+        return jsonify({"error": "Sentido inválido (use 1 ou 2)."}), 400
+
+    # 2. Verifica se já existe resposta recente no cache (menos de 15s)
+    chave_cache = f"{linha_filtro}:{sentido_filtro}"
+    agora = time.time()
+    if chave_cache in CACHE_GPS:
+        dados_salvos, timestamp = CACHE_GPS[chave_cache]
+        if agora - timestamp < CACHE_TTL:
+            return jsonify({"vehicles": dados_salvos, "cached": True})
 
     try:
         if not garantir_login():
-            return jsonify({"error": "Token recusado pela SPTrans (verifique o valor no .env)."}), 401
+            return jsonify({"error": "Falha de autenticação com a SPTrans."}), 401
 
-        # 1. Busca os códigos internos (cl) da linha pelo letreiro base (ex: "4313-10" -> "4313")
         termo = linha_filtro.split("-")[0]
         r_busca = sptrans_session.get(
             f"{BASE_URL}/Linha/Buscar",
@@ -60,7 +91,6 @@ def olhovivo():
             timeout=10
         )
 
-        # Renova o cookie caso a sessão da SPTrans tenha expirado
         if r_busca.status_code == 401:
             autenticado = False
             garantir_login()
@@ -78,12 +108,10 @@ def olhovivo():
             letreiro_completo = f"{item.get('lt')}-{item.get('tl')}"
             sl = str(item.get("sl", ""))
 
-            # Filtra exatamente a linha e o sentido clicado (1 = Ida, 2 = Volta)
-            if letreiro_completo == linha_filtro and (not sentido_filtro or sl == sentido_filtro):
+            if letreiro_completo == linha_filtro and sl == sentido_filtro:
                 cl = item["cl"]
                 destino = item.get("tp") if sl == "1" else item.get("ts")
 
-                # 2. Consulta o GPS real apenas daquele sentido (cl)
                 r_pos = sptrans_session.get(
                     f"{BASE_URL}/Posicao/Linha",
                     params={"codigoLinha": cl},
@@ -103,12 +131,13 @@ def olhovivo():
                         "destino": destino or ""
                     })
 
-        print(f"[SPTrans] Linha {linha_filtro} (Sentido {sentido_filtro}): {len(vehicles)} ônibus reais encontrados.")
+        # Salva no cache por 15 segundos
+        CACHE_GPS[chave_cache] = (vehicles, agora)
         return jsonify({"vehicles": vehicles})
 
-    except Exception as e:
-        print(f"[ERRO SPTrans] {e}")
-        return jsonify({"error": str(e)}), 500
+    except Exception:
+        # Não vaza detalhes internos do servidor (stack trace) para o usuário
+        return jsonify({"error": "Serviço temporariamente indisponível."}), 502
 
 
 if __name__ == "__main__":
