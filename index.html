@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Linhas do Terminal Cidade Tiradentes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<style>
+:root{
+  --bg:#ffffff; --surface:#fffafa; --tint:#fdeeed; --line:#f3d9d7;
+  --ink:#3a1013; --ink-soft:#6f4144; --heading:#8b1a1f;
+  --red:#e5484d; --btn:#c92a30; --btn-ink:#ffffff; --plate:#8b1a1f; --plate-ink:#ffffff;
+  --board:#8b1a1f; --board-ink:#ffeceb; --board-dim:#f2b4b6;
+  --shadow:0 12px 32px rgba(139,26,31,.12);
+  --font:'Quicksand',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  color-scheme:light;
+}
+[data-theme="dark"]{
+  --bg:#121212; --surface:#1e1e1e; --tint:#2c181a; --line:#332224;
+  --ink:#f0f0f0; --ink-soft:#b0b0b0; --heading:#ff6b70;
+  --red:#ff5257; --btn:#e5393f; --btn-ink:#ffffff; --plate:#b71c1c; --plate-ink:#ffffff;
+  --board:#1e1e1e; --board-ink:#ffccd0; --board-dim:#883338;
+  --shadow:0 12px 32px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth;scroll-padding-top:76px;background:var(--bg)}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.55;margin:0;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--bg)}
+h1,h2,h3{color:var(--heading);line-height:1.15;margin:0;text-wrap:balance}
+p{margin:0}
+a{color:var(--btn)}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+.wrap{max-width:1120px;margin:0 auto}
+.eyebrow{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--red)}
+
+/* header */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:var(--bg);border-bottom:1px solid var(--line);
+  margin-inline:calc(-1 * max(16px,env(safe-area-inset-left,0px)));padding-inline:max(16px,env(safe-area-inset-left,0px))}
+.top .wrap{display:flex;align-items:center;gap:16px;padding-block:10px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--heading);text-decoration:none;min-width:0}
+.brand b{display:grid;place-items:center;width:36px;height:36px;border-radius:10px;background:var(--plate);color:var(--plate-ink);font-size:.8rem;flex:none}
+.brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav{display:flex;gap:4px;margin-left:auto}
+.nav a{padding:8px 12px;border-radius:999px;text-decoration:none;color:var(--ink-soft);font-weight:600;font-size:.95rem}
+.nav a:hover{background:var(--tint);color:var(--heading)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:10px 18px;font-weight:700;cursor:pointer;background:var(--btn);color:var(--btn-ink);text-decoration:none}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:var(--bg);color:var(--heading);box-shadow:inset 0 0 0 2px var(--line)}
+.btn.ghost:hover{background:var(--tint)}
+.btn.sm{padding:7px 14px;font-size:.88rem}
+@media(max-width:760px){.nav a{display:none}.nav{margin-left:auto}.brand span{max-width:44vw}}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:start;padding-block:48px 28px}
+.hero h1{font-size:clamp(2rem,4.6vw,3.3rem);font-weight:700;margin-block:10px 14px}
+.hero h1 em{font-style:normal;color:var(--red)}
+.hero p.lead{font-size:1.1rem;color:var(--ink-soft);max-width:54ch}
+.finder{margin-top:22px;display:grid;gap:12px}
+.finder label{font-weight:700;color:var(--heading)}
+.finder .fbox{display:flex;gap:10px;flex-wrap:wrap}
+.finder input{flex:1 1 240px;min-width:0;border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:13px 20px;font-size:1.02rem}
+.finder input:focus{border-color:var(--red);outline:none}
+.quick{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.quick small{color:var(--ink-soft);font-weight:600}
+.chip{border:0;cursor:pointer;border-radius:999px;padding:7px 13px;font-weight:600;font-size:.88rem;background:var(--tint);color:var(--heading)}
+.chip:hover{background:var(--line)}
+.chip[aria-pressed="true"]{background:var(--btn);color:var(--btn-ink)}
+.how{background:var(--tint);border-radius:20px;padding:22px;min-width:0}
+.how h2{font-size:1.05rem;margin-bottom:14px}
+.how ol{list-style:none;margin:0;padding:0;display:grid;gap:14px;counter-reset:s}
+.how li{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start;counter-increment:s}
+.how li::before{content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--btn);color:var(--btn-ink);font-weight:700}
+.how li b{display:block;color:var(--heading)}
+.how li span{font-size:.92rem;color:var(--ink-soft)}
+@media(max-width:860px){.hero{grid-template-columns:1fr;gap:26px;padding-block:32px 20px}}
+
+.stats-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-bottom:12px}
+.stat{border:1px solid var(--line);border-radius:16px;padding:14px 16px;background:var(--bg)}
+.stat b{display:block;font-size:1.8rem;color:var(--heading);font-variant-numeric:tabular-nums;line-height:1.1}
+.stat span{font-size:.86rem;color:var(--ink-soft)}
+@media(max-width:760px){.stats-strip{grid-template-columns:repeat(2,1fr)}}
+
+section.block{padding-block:44px}
+.sec-head{display:flex;flex-direction:column;gap:6px;margin-bottom:22px;max-width:64ch}
+.sec-head h2{font-size:clamp(1.6rem,3.2vw,2.2rem)}
+.sec-head p{color:var(--ink-soft)}
+
+/* plate */
+.plate{display:inline-block;background:var(--plate);color:var(--plate-ink);font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums;
+  padding:3px 10px;border-radius:8px;white-space:nowrap;font-size:.98rem}
+.plate.night{background:#2b0b0e;box-shadow:inset 0 0 0 2px var(--red)}
+.plate.lg{font-size:1.4rem;padding:5px 14px;border-radius:10px}
+.tag{display:inline-block;font-size:.74rem;font-weight:700;letter-spacing:.03em;padding:3px 9px;border-radius:999px;background:var(--bg);color:var(--heading);box-shadow:inset 0 0 0 1.5px var(--line);white-space:nowrap}
+.tag.red{background:var(--btn);color:var(--btn-ink);box-shadow:none}
+.tag.soft{background:var(--tint);box-shadow:none}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+
+/* top 5 */
+.top5{display:grid;gap:12px;list-style:none;margin:0;padding:0}
+.t5{display:grid;grid-template-columns:56px 1fr auto;gap:16px;align-items:center;padding:16px 18px;border-radius:18px;background:var(--surface);border:1px solid var(--line);min-width:0}
+.t5:first-child{background:var(--tint);border-color:transparent}
+.t5 .rank{font-size:2.4rem;font-weight:700;color:var(--red);line-height:1;text-align:center;font-variant-numeric:tabular-nums}
+.t5 .main{min-width:0;display:grid;gap:6px}
+.t5 .head{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.t5 .head b{color:var(--ink);overflow-wrap:anywhere}
+.t5 .why{font-size:.92rem;color:var(--ink-soft)}
+.t5 .figure{font-size:1.15rem;font-weight:700;color:var(--heading);font-variant-numeric:tabular-nums}
+@media(max-width:700px){.t5{grid-template-columns:44px 1fr}.t5 .btn{grid-column:1 / -1}.t5 .rank{font-size:1.9rem}}
+.note{font-size:.88rem;color:var(--ink-soft);margin-top:14px}
+
+/* lines list */
+.tools{display:grid;gap:12px;margin-bottom:14px}
+.search{width:100%;border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:11px 18px}
+.search:focus{border-color:var(--red);outline:none}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.rows{display:grid;gap:8px}
+.row{display:grid;grid-template-columns:140px 1fr auto auto;gap:12px;align-items:center;padding:12px 16px;border-radius:14px;background:var(--surface);border:1px solid var(--line)}
+.row:hover{border-color:var(--red)}
+.row .route{min-width:0;overflow-wrap:anywhere}
+.row .route i{font-style:normal;color:var(--red);padding-inline:6px}
+.count{font-size:.9rem;color:var(--ink-soft);margin-bottom:10px}
+.empty{padding:28px;text-align:center;color:var(--ink-soft);background:var(--surface);border-radius:14px;border:1px dashed var(--line)}
+@media(max-width:860px){.row{grid-template-columns:140px 1fr auto}.row .tags{grid-column:1 / -1;order:3}}
+@media(max-width:520px){.row{grid-template-columns:1fr auto}.row .plate{justify-self:start}.row .route{grid-column:1 / -1}.row>div:first-child{grid-column:1}.row .btn{grid-column:2;grid-row:1}}
+
+.fav-star{background:none;border:0;cursor:pointer;font-size:1.2rem;color:#ccc;padding:0;line-height:1;transition:.15s}
+.fav-star:hover{color:#f5a623;transform:scale(1.15)}
+.fav-star.active{color:#f5a623}
+.row.fav-row{border-left:4px solid #f5a623;background:var(--tint)}
+
+/* history */
+.history{display:grid;grid-template-columns:.8fr 1.2fr;gap:40px;align-items:start}
+.facts{display:grid;gap:12px;grid-template-columns:repeat(2,1fr)}
+.fact{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px}
+.fact b{display:block;font-size:1.6rem;color:var(--heading);font-variant-numeric:tabular-nums;line-height:1.1}
+.fact span{font-size:.88rem;color:var(--ink-soft)}
+.tl{list-style:none;margin:0;padding:0;border-left:3px solid var(--line);margin-left:6px}
+.tl li{position:relative;padding:0 0 22px 24px}
+.tl li::before{content:"";position:absolute;left:-10px;top:5px;width:16px;height:16px;border-radius:50%;background:var(--bg);border:4px solid var(--red)}
+.tl time{font-weight:700;color:var(--heading);font-variant-numeric:tabular-nums}
+.tl p{color:var(--ink-soft)}
+@media(max-width:860px){.history{grid-template-columns:1fr;gap:26px}}
+.src{font-size:.85rem;color:var(--ink-soft);margin-top:10px}
+
+/* extras */
+.tabs{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.tab{border:0;cursor:pointer;border-radius:14px;padding:12px 18px;font-weight:700;background:var(--bg);color:var(--heading);box-shadow:inset 0 0 0 2px var(--line)}
+.tab:hover{background:var(--tint)}
+.tab[aria-selected="true"]{background:var(--heading);color:#fff;box-shadow:none}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:22px}
+.panel h3{margin-bottom:12px}
+.pl{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.pl div{display:flex;gap:12px;align-items:center;min-width:0}
+.pl span.t{min-width:0;font-size:.95rem}
+.help{font-size:.88rem;color:var(--ink-soft)}
+
+/* ============ ESTILO OLHO VIVO (BUSCA -> SENTIDOS -> MAPA) ============ */
+.ov-shell{display:grid;gap:16px}
+.ov-search-box{background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:18px;display:grid;gap:12px}
+.ov-search-row{display:flex;gap:10px;flex-wrap:wrap}
+.ov-search-row input{flex:1 1 260px;min-width:0;border:2px solid var(--line);background:var(--surface);border-radius:999px;padding:12px 18px;font-size:1rem}
+.ov-search-row input:focus{border-color:var(--red);outline:none}
+.ov-dir-list{display:grid;gap:10px}
+.ov-dir-card{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;text-align:left;padding:14px 18px;border-radius:14px;background:var(--bg);border:2px solid var(--line);cursor:pointer;transition:.15s ease}
+.ov-dir-card:hover{border-color:var(--red);background:var(--tint);transform:translateY(-1px)}
+.ov-dir-card[aria-current="true"]{border-color:var(--btn);background:var(--tint)}
+.ov-dir-info{display:grid;gap:4px;min-width:0}
+.ov-dir-badge{font-size:.74rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--red)}
+.ov-dir-title{font-weight:700;color:var(--heading);font-size:1rem;overflow-wrap:anywhere}
+.ov-dir-sub{font-size:.84rem;color:var(--ink-soft)}
+.ov-dir-arrow{font-weight:700;color:var(--btn);font-size:1.2rem;flex:none}
+.ov-map-stage{display:grid;gap:12px;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.ov-active-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;background:var(--board);color:var(--board-ink);padding:12px 16px;border-radius:14px}
+.ov-active-bar strong{display:block;font-size:1rem}
+.ov-active-bar small{color:var(--board-dim)}
+.map-canvas{width:100%;height:440px;border-radius:14px;border:2px solid var(--line);z-index:1;background:var(--tint)}
+.map-status{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;font-size:.84rem;color:var(--ink-soft);background:var(--bg);padding:10px 14px;border-radius:12px;border:1px solid var(--line)}
+.bus-pin{background:var(--btn);color:#fff;font-weight:700;font-size:.74rem;padding:3px 7px;border-radius:7px;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.38);white-space:nowrap;text-align:center}
+.bus-pin.volta{background:#1d4ed8}
+
+footer{border-top:1px solid var(--line);padding-block:30px 110px;color:var(--ink-soft);font-size:.9rem;margin-top:24px}
+footer .wrap{display:grid;gap:14px}
+footer .row2{display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;align-items:center}
+footer ul{margin:6px 0 0;padding-left:18px}
+footer li{overflow-wrap:anywhere}
+
+/* chat widget */
+.fab{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:40;
+  display:flex;align-items:center;gap:10px;border:0;cursor:pointer;border-radius:999px;padding:14px 20px;background:var(--btn);color:var(--btn-ink);font-weight:700;box-shadow:var(--shadow)}
+.fab:hover{filter:brightness(1.08)}
+.chat{position:fixed;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:85;
+  width:min(470px,calc(100vw - 32px));height:min(680px,calc(100dvh - 32px - env(safe-area-inset-bottom,0px) - env(safe-area-inset-top,0px)));
+  background:var(--bg);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;
+  transform:translateY(16px) scale(.98);opacity:0;visibility:hidden;transition:.2s ease}
+.chat.open{transform:none;opacity:1;visibility:visible}
+.chat-head{background:var(--board);color:var(--board-ink);padding:14px 16px;display:flex;align-items:center;gap:12px}
+.chat-head .av{width:38px;height:38px;border-radius:12px;background:var(--bg);color:var(--heading);display:grid;place-items:center;font-weight:700;flex:none}
+.chat-head strong{display:block;line-height:1.2}
+.chat-head small{color:var(--board-dim)}
+.chat-head .x{margin-left:auto;border:0;background:rgba(255,255,255,.18);color:inherit;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:1.1rem;flex:none}
+.chat-head .clr{margin-left:auto;border:0;background:rgba(255,255,255,.18);color:inherit;border-radius:999px;padding:7px 12px;cursor:pointer;font-size:.8rem;font-weight:700;flex:none}
+.chat-head .clr:hover{background:rgba(255,255,255,.3)}
+.chat-head .clr + .x{margin-left:0}
+.log{flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;background:var(--surface)}
+.msg{max-width:88%;display:flex;flex-direction:column;gap:6px;min-width:0}
+.msg.user{align-self:flex-end;align-items:flex-end}
+.bubble{padding:10px 14px;border-radius:16px;overflow-wrap:anywhere;white-space:pre-line}
+.msg.bot .bubble{background:var(--bg);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg.user .bubble{background:var(--btn);color:var(--btn-ink);border-bottom-right-radius:4px}
+.mlines{display:grid;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:8px 10px}
+.mlines div{display:flex;gap:10px;align-items:center;font-size:.86rem;min-width:0}
+.mlines span.t{min-width:0;overflow-wrap:anywhere}
+.fb{display:flex;gap:6px;align-items:center;font-size:.78rem;color:var(--ink-soft)}
+.fb button{border:0;cursor:pointer;background:var(--bg);box-shadow:inset 0 0 0 1.5px var(--line);border-radius:999px;padding:3px 10px;font-size:1rem;line-height:1.3}
+.fb button[aria-pressed="true"]{background:var(--tint);box-shadow:inset 0 0 0 2px var(--red)}
+.typing{display:flex;gap:4px;padding:12px 14px}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--red);animation:b 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,60%,100%{opacity:.3;transform:none}30%{opacity:1;transform:translateY(-3px)}}
+.sugg{display:flex;gap:8px;overflow-x:auto;padding:10px 16px;background:var(--surface);border-top:1px solid var(--line);scrollbar-width:thin}
+.sugg button{flex:none;border:0;cursor:pointer;border-radius:999px;padding:7px 12px;font-size:.84rem;font-weight:600;background:var(--bg);color:var(--heading);box-shadow:inset 0 0 0 1.5px var(--line)}
+.sugg button:hover{background:var(--tint)}
+.chat form{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);background:var(--bg)}
+.chat input{flex:1;min-width:0;border:2px solid var(--line);background:var(--bg);border-radius:999px;padding:10px 16px}
+.chat input:focus{border-color:var(--red);outline:none}
+.chat form .btn{padding:10px 16px}
+
+/* drawers (detalhes da linha + painel dev) */
+.scrim{position:fixed;inset:0;z-index:70;background:rgba(58,16,19,.45);opacity:0;visibility:hidden;transition:.2s}
+.scrim.open{opacity:1;visibility:visible}
+.drawer{position:fixed;top:0;right:0;bottom:0;z-index:75;width:min(520px,100vw);background:var(--bg);border-left:1px solid var(--line);box-shadow:var(--shadow);
+  transform:translateX(100%);visibility:hidden;transition:.25s ease;display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.drawer.open{transform:none;visibility:visible}
+.d-head{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line)}
+.d-head h2{font-size:1.2rem;min-width:0;overflow-wrap:anywhere}
+.d-head .x{margin-left:auto;border:0;background:var(--tint);color:var(--heading);width:36px;height:36px;border-radius:50%;cursor:pointer;flex:none}
+.d-body{overflow-y:auto;padding:20px;display:grid;gap:22px;align-content:start;padding-right:max(20px,env(safe-area-inset-right,0px))}
+.d-sec h3{font-size:1rem;margin-bottom:10px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.box.hl{background:var(--tint);border-color:transparent}
+.box b{color:var(--heading)}
+.dir-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.steps{list-style:none;margin:0;padding:0 0 0 4px}
+.steps li{position:relative;padding:0 0 14px 28px;border-left:3px solid var(--line);margin-left:8px;font-size:.96rem;overflow-wrap:anywhere}
+.steps li:last-child{border-left-color:transparent;padding-bottom:0}
+.steps li::before{content:"";position:absolute;left:-8px;top:5px;width:13px;height:13px;border-radius:50%;background:var(--bg);border:3px solid var(--red)}
+.steps li.term{font-weight:700;color:var(--heading)}
+.steps li.term::before{width:19px;height:19px;left:-11px;top:2px;background:var(--btn);border:3px solid var(--bg);box-shadow:0 0 0 2px var(--btn)}
+.steps small{display:inline-block;margin-left:8px;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red)}
+.d-acts{display:flex;flex-wrap:wrap;gap:8px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.stats div{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stats b{display:block;font-size:1.4rem;color:var(--heading);font-variant-numeric:tabular-nums}
+.stats span{font-size:.72rem;color:var(--ink-soft)}
+.fail{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:8px;margin-bottom:8px}
+.fail q{font-weight:700;quotes:none}
+.fail small{color:var(--ink-soft);overflow-wrap:anywhere}
+.fail .acts{display:flex;flex-wrap:wrap;gap:8px}
+.fail .res{font-size:.88rem;background:var(--bg);border-radius:10px;padding:8px 10px;border:1px dashed var(--line);overflow-wrap:anywhere}
+.form{display:grid;gap:10px}
+.form label{font-size:.85rem;font-weight:700;color:var(--ink-soft);display:grid;gap:4px}
+.form input,.form textarea{border:2px solid var(--line);background:var(--bg);border-radius:12px;padding:9px 12px;width:100%}
+.form textarea{min-height:84px;resize:vertical}
+.form input:focus,.form textarea:focus{border-color:var(--red);outline:none}
+.rule{display:flex;gap:10px;justify-content:space-between;align-items:flex-start;font-size:.88rem;padding:8px 0;border-top:1px solid var(--line)}
+.rule small{display:block;color:var(--ink-soft)}
+.ctrl-grid{display:grid;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.ctrl-row{display:grid;gap:6px}
+.ctrl-head{display:flex;justify-content:space-between;align-items:center;font-size:.86rem;font-weight:700;color:var(--heading)}
+.ctrl-head span.val{background:var(--tint);padding:2px 8px;border-radius:999px;font-variant-numeric:tabular-nums}
+.ctrl-row input[type=range]{width:100%;accent-color:var(--btn);cursor:pointer}
+.ctrl-desc{font-size:.78rem;color:var(--ink-soft)}
+.edit-box{display:grid;gap:8px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.edit-box textarea{border:2px solid var(--red);background:var(--bg);border-radius:10px;padding:8px 10px;font-size:.88rem;min-height:72px;width:100%;resize:vertical}
+.badge-ok{display:inline-block;font-size:.74rem;font-weight:700;padding:3px 9px;border-radius:999px;background:#e6f6ec;color:#156936}
+.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#18a957;margin-right:6px;box-shadow:0 0 0 3px rgba(24,169,87,.2)}
+textarea.csv{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.74rem;min-height:140px;white-space:pre;overflow:auto;width:100%;border:2px solid var(--line);background:var(--surface);border-radius:12px;padding:10px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#inicio"><b>CT</b><span>Terminal Cidade Tiradentes</span></a>
+    <button class="btn ghost sm" id="themeToggle" type="button" aria-label="Alternar modo escuro" style="margin-right:8px">🌙 Escuro</button>
+    <nav class="nav" aria-label="Seções">
+      <a href="#top5">Top 5</a><a href="#linhas">Linhas</a><a href="#historia">História</a><a href="#extras">Olho Vivo</a>
+    </nav>
+    <button class="btn sm" id="openChatTop" type="button">Falar com o Tira</button>
+  </div>
+</header>
+
+<main class="wrap" id="inicio">
+  <section class="hero">
+    <div>
+      <span class="eyebrow">Zona Leste · São Paulo</span>
+      <h1>Linhas de ônibus do <em>Terminal Cidade Tiradentes</em></h1>
+      <p class="lead">Encontre a linha que você usa, veja por quais ruas ela passa e descubra quais são as mais cheias do terminal.</p>
+      <div class="finder">
+        <label for="hq">Qual linha ou destino você procura?</label>
+        <div class="fbox">
+          <input id="hq" type="search" placeholder="Ex.: Itaquera, 4313, Guaianases, Tatuapé" autocomplete="off">
+          <a class="btn" href="#linhas" id="hgo">Buscar</a>
+        </div>
+        <div class="quick" id="quick"><small>Atalhos:</small></div>
+      </div>
+    </div>
+    <aside class="how" aria-label="Como usar o site">
+      <h2>Como usar este site</h2>
+      <ol>
+        <li><div><b>Busque sua linha</b><span>Digite o código ou o destino e escolha um filtro.</span></div></li>
+        <li><div><b>Acompanhe no Olho Vivo</b><span>Pesquise uma linha, escolha o sentido e veja o GPS no mapa.</span></div></li>
+        <li><div><b>Tire dúvidas com o Tira</b><span>O chatbot responde sobre linhas, destinos e história do bairro.</span></div></li>
+      </ol>
+    </aside>
+  </section>
+
+  <div class="stats-strip" id="strip"></div>
+
+  <section class="block" id="top5">
+    <div class="sec-head">
+      <span class="eyebrow">Mais cheias</span>
+      <h2>Top 5 linhas mais lotadas do terminal</h2>
+      <p>A SPTrans divulga números de passageiros só para as linhas mais movimentadas da cidade. Por isso cada posição mostra de onde vem a informação.</p>
+    </div>
+    <ol class="top5" id="top5List"></ol>
+    <p class="note" id="top5Note"></p>
+  </section>
+
+  <section class="block" id="linhas">
+    <div class="sec-head">
+      <span class="eyebrow">Todas as linhas</span>
+      <h2>Para onde o terminal leva</h2>
+      <p>Filtre por tipo de ligação e toque em “Ver detalhes” para abrir o itinerário.</p>
+    </div>
+    <div class="tools">
+      <input class="search" id="q" type="search" placeholder="Buscar por código, destino ou rua (ex.: Iguatemi)" aria-label="Buscar linha">
+      <div class="chips" id="chips" role="group" aria-label="Filtros"></div>
+    </div>
+    <div class="count" id="count" aria-live="polite"></div>
+    <div class="rows" id="rows"></div>
+  </section>
+
+  <section class="block" id="historia">
+    <div class="history">
+      <div>
+        <div class="sec-head">
+          <span class="eyebrow">Um pouco de história</span>
+          <h2>Do sítio de eucaliptos ao maior complexo habitacional da América Latina</h2>
+        </div>
+        <div class="facts">
+          <div class="fact"><b>~200 mil</b><span>habitantes em cerca de 15 km²</span></div>
+          <div class="fact"><b>~40 mil</b><span>unidades habitacionais nos conjuntos</span></div>
+          <div class="fact"><b>1h30+</b><span>de viagem até o centro, segundo reportagem de 2015</span></div>
+          <div class="fact"><b id="factLines">27</b><span>linhas municipais no terminal</span></div>
+        </div>
+        <p class="src">Fontes: <a href="https://diariodotransporte.com.br/2026/04/21/historia-com-fotos-cidade-tiradentes-um-dos-bercos-do-tarifa-zero-em-sao-paulo-e-da-importancia-dos-onibus-na-vida-das-pessoas/" target="_blank" rel="noopener">Diário do Transporte (2026)</a> e <a href="https://www.saopaulo.sp.leg.br/blog/camara-seu-bairro-cidade-tiradentes-e-conhecida-por-ter-o-maior-complexo-de-conjuntos-habitacionais-de-sp/" target="_blank" rel="noopener">Câmara Municipal de São Paulo</a>. Não encontrei a data de inauguração do terminal nessas fontes.</p>
+      </div>
+      <ol class="tl">
+        <li><time>c. 1890</time><p>A área da Fazenda Santa Etelvina é comprada por Rodovalho, proprietário com ligação com ferrovias. O nome da fazenda hoje identifica um bairro da região.</p></li>
+        <li><time>c. 1925</time><p>Um bonde sobre trilhos circula dentro da fazenda e aparece como um dos precursores do transporte coletivo no local.</p></li>
+        <li><time>1981</time><p>Começam as obras do conjunto Santa Etelvina pela Cohab-SP e pela CDHU, marco de fundação do bairro. As terras eram cobertas por eucaliptos e trechos de Mata Atlântica.</p></li>
+        <li><time>1984</time><p>As primeiras unidades habitacionais são entregues. O bairro se torna o maior complexo de habitação popular da América Latina e funciona como bairro-dormitório, com poucos empregos locais.</p></li>
+        <li><time>1991</time><p>Na gestão da prefeita Luíza Erundina, cinco linhas circulares levam a um terminal central do bairro, com viagem gratuita dentro da área. O destino ao centro seguia pago.</p></li>
+        <li><time>1995</time><p>A CMTC passa a se chamar SPTrans.</p></li>
+        <li><time>1998</time><p>O prefeito Celso Pitta encerra a gratuidade em quatro das cinco linhas, citando custos e a necessidade de redesenhar a rede.</p></li>
+        <li><time>Hoje</time><p>O terminal reúne 27 linhas municipais e liga o bairro a metrô, trem e outros terminais. O texto de 2026 também registra a chegada dos ônibus elétricos à região.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="extras">
+    <div class="sec-head">
+      <span class="eyebrow">Mais informações e rastreamento</span>
+      <h2>Escolha o que quer consultar</h2>
+    </div>
+    <div class="tabs" role="tablist" aria-label="Informações adicionais">
+      <button class="tab" role="tab" id="t-map" aria-selected="true" aria-controls="xpanel" data-k="map">Mapa ao vivo (Olho Vivo)</button>
+      <button class="tab" role="tab" id="t-rail" aria-selected="false" aria-controls="xpanel" data-k="rail">Metrô e trem</button>
+      <button class="tab" role="tab" id="t-night" aria-selected="false" aria-controls="xpanel" data-k="night">Linhas noturnas</button>
+      <button class="tab" role="tab" id="t-roads" aria-selected="false" aria-controls="xpanel" data-k="roads">Vias e acessos</button>
+    </div>
+    <div class="panel" id="xpanel" role="tabpanel" aria-live="polite"></div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row2">
+      <div>Projeto acadêmico · Estratégias Empresariais na Era Digital.</div>
+      <button class="btn ghost sm" id="openDev" type="button">Painel Dev / Retreinamento</button>
+    </div>
+    <div>
+      <b>Fontes dos dados</b>
+      <ul>
+        <li>Lista de linhas: fornecida pelo grupo.</li>
+        <li>Itinerários: sequência de pontos de parada da SPTrans publicada no <a href="https://thetimey.com/brazil/sao-paulo/sptrans/timetables/3787-10-bus" target="_blank" rel="noopener">Timey</a>. Ruas e trajetos podem mudar; confirme no <a href="https://www.sptrans.com.br" target="_blank" rel="noopener">site ou app oficial da SPTrans</a>.</li>
+        <li>Passageiros: ranking de maio de 2026 com dados da SPTrans, divulgado pela <a href="https://www.mobibrasil.com.br/2026/07/14/mobibrasil-lidera-ranking-das-linhas-de-onibus-mais-movimentadas-de-sao-paulo" target="_blank" rel="noopener">MobiBrasil</a>.</li>
+        <li>Reforço na greve da CPTM: <a href="https://diariodotransporte.com.br/2026/08/04/sptrans-reforca-operacao-de-15-linhas-de-onibus-na-zona-leste-durante-greve-da-cptm/" target="_blank" rel="noopener">Diário do Transporte</a>.</li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<button class="fab" id="fab" type="button" aria-label="Abrir chat do Tira">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>
+  Pergunte ao Tira
+</button>
+
+<section class="chat" id="chat" role="dialog" aria-label="Chat com o Tira" aria-hidden="true">
+  <div class="chat-head">
+    <div class="av">T</div>
+    <div><strong>Tira</strong><small>Assistente das linhas do terminal</small></div>
+    <button class="clr" id="clearChat" type="button">Limpar conversa</button>
+    <button class="x" id="closeChat" type="button" aria-label="Fechar chat">✕</button>
+  </div>
+  <div class="log" id="log" aria-live="polite"></div>
+  <div class="sugg" id="sugg"></div>
+  <form id="chatForm" autocomplete="off">
+    <input id="chatInput" type="text" placeholder="Digite sua pergunta" aria-label="Sua pergunta" maxlength="200">
+    <button class="btn" type="submit">Enviar</button>
+  </form>
+</section>
+
+<div class="scrim" id="scrim"></div>
+
+<aside class="drawer" id="lineDrawer" aria-hidden="true" aria-label="Detalhes da linha">
+  <div class="d-head"><span id="ldPlate"></span><h2 id="ldTitle"></h2><button class="x" id="closeLine" type="button" aria-label="Fechar detalhes">✕</button></div>
+  <div class="d-body" id="ldBody"></div>
+</aside>
+
+<aside class="drawer" id="drawer" aria-hidden="true" aria-label="Painel Dev e retreinamento">
+  <div class="d-head"><h2><span class="live-dot" title="Sincronização em tempo real ativa"></span>Painel Dev · Tempo Real</h2><button class="x" id="closeDev" type="button" aria-label="Fechar painel">✕</button></div>
+  <div class="d-body">
+    <div class="stats" id="stats"></div>
+
+    <div class="d-sec">
+      <h3>Controle do Algoritmo (ao vivo)</h3>
+      <div class="ctrl-grid" id="algoControls">
+        <div class="ctrl-row">
+          <div class="ctrl-head"><span>Corte mínimo de confiança (Threshold)</span><span class="val" id="valMinPts">4.5 pts</span></div>
+          <input type="range" id="cfgMinPts" min="1" max="15" step="0.5" value="4.5">
+          <span class="ctrl-desc">Pontuação mínima para aceitar um destino/rua. Valores maiores evitam respostas inventadas.</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-head"><span>Peso de frase exata no destino</span><span class="val" id="valExactDest">15 pts</span></div>
+          <input type="range" id="cfgExactDest" min="5" max="25" step="1" value="15">
+          <span class="ctrl-desc">Bônus quando o nome completo buscado bate exatamente no destino da linha.</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-head"><span>Fator de termos genéricos (São, José, Campos...)</span><span class="val" id="valGeneric">0.4x</span></div>
+          <input type="range" id="cfgGeneric" min="0.1" max="1.0" step="0.1" value="0.4">
+          <span class="ctrl-desc">Reduz o peso de palavras comuns em ruas para evitar falsos positivos.</span>
+        </div>
+        <div class="ctrl-row">
+          <div class="ctrl-head"><span>Penalização de termo composto incompleto</span><span class="val" id="valCompound">0.25x</span></div>
+          <input type="range" id="cfgCompound" min="0.05" max="1.0" step="0.05" value="0.25">
+          <span class="ctrl-desc">Multiplica a nota quando o usuário busca 2+ palavras e só acha pedaços soltos.</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:4px">
+          <span class="help" id="algoStatus">Alterações aplicadas instantaneamente no Tira.</span>
+          <button class="btn ghost sm" id="resetAlgo" type="button">Restaurar padrão</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-sec">
+      <h3>Respostas erradas e sem correspondência</h3>
+      <p class="help" style="margin-bottom:10px">Clique em <b>Editar resposta</b> para corrigir diretamente. A correção passa a valer na hora para essa pergunta e atualiza o chat ao vivo.</p>
+      <div id="fails"></div>
+    </div>
+
+    <div class="d-sec">
+      <h3>Correções diretas e regras ativas</h3>
+      <form class="form" id="ruleForm">
+        <label for="rk">Palavras-chave (separe por vírgula; use + no fim para peso maior)
+          <input id="rk" type="text" placeholder="ex.: bilhete único+, recarga, cartão">
+        </label>
+        <label for="ra">Resposta do Tira
+          <textarea id="ra" placeholder="Escreva a resposta que o chatbot deve dar"></textarea>
+        </label>
+        <button class="btn sm" type="submit">Salvar nova regra</button>
+        <span class="help" id="ruleMsg" role="status"></span>
+      </form>
+      <div id="rules" style="margin-top:10px"></div>
+    </div>
+
+    <div class="d-sec">
+      <h3>Relatório</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
+        <button class="btn sm" id="showCsv" type="button">Gerar CSV</button>
+        <button class="btn ghost sm" id="copyCsv" type="button">Copiar CSV</button>
+        <button class="btn ghost sm" id="clearLog" type="button">Limpar histórico</button>
+      </div>
+      <p class="help" style="margin-top:8px">Os registros ficam no navegador (localStorage) e sincronizam em tempo real entre abas.</p>
+      <textarea class="csv" id="csv" readonly hidden aria-label="Relatório CSV"></textarea>
+    </div>
+  </div>
+</aside>
+
+<script>
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+
+/* ============ DADOS ============ */
+const RAW = `3013-10|TERM. CID. TIRADENTES / METALÚRGICOS
+3019-10|TERM. CID. TIRADENTES / VL. PAULISTA I
+3064-10|CID. TIRADENTES / CPTM GUAIANASES
+3064-41|TERM. CID. TIRADENTES / STA. ETELVINA II B6
+312N-10|TERM. CID. TIRADENTES / SÃO MIGUEL PAULISTA
+3539-10|CID. TIRADENTES / METRÔ BRESSER
+3785-10|COHAB BARRO BRANCO / METRÔ ITAQUERA
+3787-10|CID. TIRADENTES / METRÔ ITAQUERA
+3789-10|CID. TIRADENTES / METRÔ ITAQUERA
+4004-10|TERM. CID. TIRADENTES / BARRO BRANCO
+4005-10|TERM. CID. TIRADENTES / BARRO BRANCO
+4017-10|METALÚRGICOS / VL. YOLANDA
+4018-10|METALÚRGICOS / TERM. SÃO MATEUS
+407L-10|BARRO BRANCO / METRÔ GUILHERMINA/ESPERANÇA
+407N-10|TERM. CID. TIRADENTES / METRÔ PENHA
+407P-10|TERM. CID. TIRADENTES / METRÔ TATUAPÉ
+4086-10|TERM. CID. TIRADENTES / CIRCULAR
+4092-10|TERM. CID. TIRADENTES / SETOR IIB
+4093-10|CID. TIRADENTES / TERM. CID. TIRADENTES
+4210-10|TERM. CID. TIRADENTES / TERM. PQ. D. PEDRO II
+4313-10|TERM. CID. TIRADENTES / TERM. PQ. D. PEDRO II
+N403-11|TERM. CID. TIRADENTES / METRÔ ITAQUERA
+N406-11|TERM. CID. TIRADENTES / TERM. SÃO MATEUS
+N435-11|TERM. CID. TIRADENTES / METALÚRGICOS
+N436-11|TERM. CID. TIRADENTES / BARRO BRANCO
+N437-11|CPTM GUAIANASES / TERM. CID. TIRADENTES
+N441-11|TERM. CID. TIRADENTES / VL. YOLANDA`;
+
+const TCT='@Terminal Cidade Tiradentes';
+const ITIN={
+ '3787-10':{dirs:[{label:'Sentido Metrô Itaquera',path:'@Terminal Metalúrgicos > Av. Luiz José Costa Leandro > R. Luís Bordese > R. René de Toledo > Av. dos Metalúrgicos > '+TCT+' (Plat. 3) > R. Dª. Eloá do Valle Quadros > R. Igarapé da Missão > Av. Nascer do Sol > Estr. do Iguatemi > Av. Ragueb Chohfi > R. José Augusto Cesar Salgado > Av. Jacu-Pêssego / Nova Trabalhadores > R. São Teodoro > R. Fontoura Xavier > R. Benedito Coelho Neto > Av. Itaquera > Av. Miguel Ignácio Curi > Av. Prof. Eng. Ardevan Machado > @Terminal Metrô Itaquera (Plat. C)'}]},
+ '3785-10':{dirs:[{label:'Sentido Metrô Itaquera',path:'R. José Francisco Brandão > R. dos Têxteis > R. Patrício Teixeira > R. Alexandre Davidenko > Av. Cachoeira do Campo Grande > R. Antônio Carlos Mingues Lopes > R. Sara Kubitscheck > '+TCT+' (Plat. 3) > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > Av. Ragueb Chohfi > R. José Augusto Cesar Salgado > Av. Jacu-Pêssego / Nova Trabalhadores > R. São Teodoro > R. Fontoura Xavier > R. Benedito Coelho Neto > Av. Itaquera > Av. Miguel Ignácio Curi > Av. Prof. Eng. Ardevan Machado > @Terminal Metrô Itaquera (Plat. C)'}]},
+ '3789-10':{dirs:[{label:'Sentido Metrô Itaquera',path:'R. Gigi Damiani > R. Francisco José Viana > R. dos Pedreiros > Av. dos Metalúrgicos > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > Av. Ragueb Chohfi > R. José Augusto Cesar Salgado > Av. Jacu-Pêssego / Nova Trabalhadores > Av. Adriano Bertozzi > R. John Speers > Av. Osvaldo Pucci > Av. Afonso de Sampaio e Sousa > R. Harry Dannenberg > Av. Itaquera > Av. Miguel Ignácio Curi > Av. Prof. Eng. Ardevan Machado > @Terminal Metrô Itaquera'}]},
+ '4313-10':{dirs:[{label:'Sentido Term. Parque Dom Pedro II',path:TCT+' > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > Av. Ragueb Chohfi > Av. Aricanduva > Av. Conde de Frontin > R. Melo Freire > Av. Alcântara Machado > R. da Figueira > @Terminal Parque Dom Pedro II'}],refs:'Pontos de referência no trajeto: Metrô Tatuapé, Terminal Metrô Belém e Instituto Brasileiro de Controle do Câncer.'},
+ '4210-10':{dirs:[{label:'Sentido Term. Parque Dom Pedro II',path:TCT+' > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > Av. Ragueb Chohfi > Av. Aricanduva > Av. Conde de Frontin > R. Antônio de Barros > Av. Celso Garcia > @Terminal Parque Dom Pedro II'}]},
+ '407P-10':{dirs:[{label:'Sentido Metrô Tatuapé',path:TCT+' (Plat. 2) > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > R. da Passagem Funda > R. Saturnino Pereira > R. Getulina > R. Benedito Leite de Ávila > Av. José Pinheiro Borges > Av. do Contorno > R. Dr. Luiz Aires > Av. Antônio Estevão de Carvalho > Av. Conde de Frontin > R. Melo Freire > @Metrô Tatuapé'}]},
+ '407L-10':{dirs:[{label:'Sentido Metrô Guilhermina-Esperança',path:'R. José Francisco Brandão > R. dos Têxteis > R. Patrício Teixeira > R. Alexandre Davidenko > Av. Cachoeira do Campo Grande > R. Antônio Carlos Mingues Lopes > R. Sara Kubitscheck > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > R. da Passagem Funda > R. Saturnino Pereira > R. Prof. João de Lima Paiva > @CPTM Guaianases (Parada 1) > R. Salvador Gianetti > Estr. Itaquera-Guaianases > R. Damásio Pinto > R. Augusto Carlos Bauman > @Estação Terminal Itaquera (Plat. A) > Av. Campanella > Av. Esperantina > Pça. Arama > R. dos Continentes > R. Marciano Capella > R. Carlos Maria Steimberg > R. Itinguçu > R. Alarco > R. Serra da Prata > R. Vieira Mendes > @Metrô Guilhermina-Esperança'}]},
+ '407N-10':{dirs:[{label:'Sentido Metrô Penha',path:TCT+' (Plat. 2) > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > Av. Ragueb Chohfi > Av. Aricanduva > Av. Conde de Frontin > @Terminal Metrô Penha (lado Sul)'}]},
+ '3064-10':{dirs:[{label:'Guaianases → Cidade Tiradentes',path:'@Terminal CPTM Guaianases (Plat. A) > R. Hipólito de Camargo > R. Saturnino Pereira > R. da Passagem Funda > Estr. do Iguatemi > R. Ituruna > Estr. do Iguatemi > R. Márcio Beck Machado > Av. Souza Ramos > '+TCT+' (Plat. 3) > Av. dos Metalúrgicos > Av. Luiz José Costa Leandro > R. dos Pedreiros'}],note:'A fonte lista o sentido de Guaianases para o bairro. O trajeto de ida segue o mesmo corredor.'},
+ '3064-41':{dirs:[{label:'Circular Santa Etelvina II B6',path:TCT+' (Plat. 2) > Av. Souza Ramos > R. Arroio Sarandi > R. João Cabral de Melo Neto > R. Márcio Beck Machado > R. Arroio Triunfo > R. Arroio Araponga > R. Arroio Triunfo > R. Márcio Beck Machado > Av. Souza Ramos > '+TCT+' (Plat. 2)'}]},
+ '3013-10':{dirs:[{label:'Sentido Metalúrgicos',path:TCT+' (Plat. 4) > Av. dos Metalúrgicos > R. Dª. Eloá do Valle Quadros > R. Edson Danilo Dotto > R. Igarapé do Frade > R. Igarapé da Missão > Av. Nascer do Sol > R. Sen. Nelson Carneiro > Av. Nascer do Sol > R. Igarapé Água Azul > Av. dos Metalúrgicos > '+TCT+' (Plat. 3/4)'}]},
+ '3019-10':{dirs:[{label:'Sentido Vila Paulista I',path:TCT+' (Plat. 4) > Av. Souza Ramos > R. Manuel Oliveira Ramos > R. Mário Ferraz de Souza > R. Francisco José Alves > R. Mar de Baffim > R. Camassandi > R. Mário Ferraz de Souza > R. Cabocla da Lua Nova > R. Sara Kubitscheck > '+TCT+' (Plat. 3/4)'}]},
+ '312N-10':{dirs:[{label:'Sentido São Miguel Paulista',path:TCT+' (Plat. 2) > Av. Souza Ramos > R. Inácio Monteiro > R. Dr. Guilherme de Abreu Sodré > R. Regresso Feliz > Av. Cachoeira Morena > R. Igarapé da Bela Aurora > R. Inácio Monteiro > R. Vitalina Maria de Jesus Schalch > Av. José Higino Neves > R. Onofre Leite Meirelles > R. Dr. Alcides da Costa Vidigal > Av. Miguel Achiole da Fonseca > R. Otelo Augusto Ribeiro > R. Caranaíba > @Terminal CPTM Guaianases (Plat. B) > R. Salvador Gianetti > R. Cap. Pucci > Estr. do Lageado Velho > Estr. D. João Neri > Av. Gerônimo Barbosa da Silva > R. João Correia de Magalhães > R. Pe. Vicente de Araújo > R. Romualdo de Souza Brito > Av. Teodoro Bernardo do Nascimento > Av. João Batista Santiago > Pça. Mãe Preta > R. Melchiades Neres de Campos > R. Aricanga > Av. Mal. Tito > R. Arlindo Colaço > R. Salvador de Medeiros'}]},
+ '4004-10':{dirs:[{label:'Sentido Barro Branco',path:TCT+' (Plat. 1) > R. dos Têxteis > R. José Francisco Brandão > R. dos Têxteis > R. Patrício Teixeira > R. Alexandre Davidenko > R. Luís Carlos Libay > Av. Cachoeira do Campo Grande > R. Antônio Carlos Mingues Lopes > R. Sara Kubitscheck > '+TCT+' (Plat. 1)'}]},
+ '4005-10':{dirs:[{label:'Sentido Barro Branco',path:TCT+' (Plat. 1) > R. Sara Kubitscheck > R. Antônio Carlos Mingues Lopes > Av. Cachoeira do Campo Grande > R. Alexandre Davidenko > R. Patrício Teixeira > Av. Naylor de Oliveira > R. dos Têxteis > '+TCT+' (Plat. 1)'}]},
+ '4092-10':{dirs:[{label:'Sentido Setor IIB',path:TCT+' (Plat. 4) > Av. Souza Ramos > R. Márcio Beck Machado > R. Juá Mirim > R. Sabiá da Praia > R. Canela Rosa > R. Garça Morena > R. Lírio das Pedras > R. Hena > R. Juá Mirim > R. Arroio Campo Bom > Estr. Circular > R. Juá Mirim > R. Begônia Real > R. Hena > R. Lírio das Pedras > R. Garça Morena > R. Sabiá da Praia > R. Juá Mirim > Estr. do Iguatemi > R. Márcio Beck Machado > Av. Souza Ramos > '+TCT+' (Plat. 3/4)'}]},
+ '4086-10':{partial:true,dirs:[{label:'Circular (vias principais, sem ordem exata)',path:'Av. dos Metalúrgicos > R. Paulo Badi > R. Gonçalves Nina > R. Pe. Aldemar Moreira > '+TCT+' (Plat. 3)'}],note:'A fonte cita estas vias, mas não deixou clara a ordem de passagem.'},
+ 'N403-11':{dirs:[{label:'Sentido Metrô Itaquera',path:TCT+' (Plat. 1) > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > R. da Passagem Funda > R. Saturnino Pereira > R. Prof. João de Lima Paiva > @CPTM Guaianases > R. Salvador Gianetti > Estr. Itaquera-Guaianases > R. Damásio Pinto > R. Augusto Carlos Bauman > Av. Itaquera > Av. Miguel Ignácio Curi > Av. Prof. Eng. Ardevan Machado > @Terminal Metrô Itaquera (Plat. C)'}]},
+ 'N406-11':{partial:true,dirs:[{label:'Sentido Term. São Mateus (trecho inicial)',path:TCT+' > Av. Souza Ramos > R. Márcio Beck Machado > Estr. do Iguatemi > Av. Ragueb Chohfi > @Terminal São Mateus'}],note:'A fonte mostra só o trecho inicial até a Av. Ragueb Chohfi. O restante até São Mateus não foi listado.'},
+ 'N435-11':{dirs:[{label:'Sentido Metalúrgicos',path:TCT+' (Plat. 2) > Av. dos Metalúrgicos > R. Dª. Eloá do Valle Quadros > R. Edson Danilo Dotto > R. Igarapé do Frade > R. Igarapé da Missão > Av. Nascer do Sol > R. Sen. Nelson Carneiro > Av. dos Metalúrgicos > Av. Luiz José Costa Leandro > R. Luís Bordese > R. Severino Souto Maior > R. dos Pedreiros > Av. dos Metalúrgicos > '+TCT+' (Plat. 2)'}]},
+ 'N436-11':{dirs:[{label:'Sentido Barro Branco',path:TCT+' (Plat. 2) > R. dos Têxteis > R. José Francisco Brandão > R. dos Têxteis > R. Patrício Teixeira > R. Alexandre Davidenko > R. Luís Carlos Libay > Av. Cachoeira do Campo Grande > R. Antônio Carlos Mingues Lopes > R. Sara Kubitscheck > '+TCT+' (Plat. 2)'}]},
+ 'N441-11':{dirs:[{label:'Sentido Vila Yolanda',path:TCT+' (Plat. 2) > Av. Souza Ramos > R. Inácio Monteiro > R. Dr. Guilherme de Abreu Sodré > R. Regresso Feliz > Av. Cachoeira Morena > R. Igarapé da Bela Aurora > R. Inácio Monteiro > R. Ilha Mexicana > Estr. Manoel de Oliveira Ramos > R. Coutinho Melo (Estr. do Paiol)'},{label:'Retorno ao terminal',path:'R. Inácio Monteiro > R. Igarapé da Bela Aurora > Av. Cachoeira Morena > R. Regresso Feliz > R. Dr. Guilherme de Abreu Sodré > R. Inácio Monteiro > Av. Souza Ramos > '+TCT+' (Plat. 2)'}],note:'A divisão entre ida e retorno foi inferida pela ordem dos pontos de parada.'}
+};
+Object.values(ITIN).forEach(i=>i.dirs.forEach(d=>d.streets=d.path.split(' > ')));
+
+const TOP5=[
+ {code:'4313-10',kind:'official',figure:'565.870 passageiros em maio/2026',why:'5ª linha mais movimentada de toda a cidade de São Paulo, segundo o ranking com dados da SPTrans.'},
+ {code:'407L-10',kind:'official',figure:'462.347 passageiros em maio/2026',why:'20ª linha mais movimentada da cidade. Liga Barro Branco ao Metrô Guilhermina-Esperança.'},
+ {code:'407P-10',kind:'indicator',figure:'Reforçada pela SPTrans em 04/08/2026',why:'Foi a única linha do terminal entre as 15 da Zona Leste reforçadas no pico da tarde durante a greve da CPTM.'},
+ {code:'4210-10',kind:'estimate',figure:'Sem número divulgado',why:'Faz o mesmo corredor e o mesmo destino da 4313-10 (Parque Dom Pedro II). A 4310-10, que sai de Itaquera para o mesmo terminal, está entre as 10 mais cheias da cidade.'},
+ {code:'3787-10',kind:'estimate',figure:'Sem número divulgado',why:'Ligação direta com o Metrô Itaquera, ponto de integração com a Linha 3-Vermelha e a Linha 11-Coral da CPTM.'}
+];
+const KIND={official:'Dado SPTrans',indicator:'Indicador',estimate:'Estimativa'};
+
+const pretty = s => s.toLowerCase()
+  .replace(/(^|[\s/])([a-zà-ú])/g,(m,a,b)=>a+b.toUpperCase())
+  .replace(/\bCptm\b/g,'CPTM').replace(/\bIib\b/g,'IIB').replace(/\bIi\b/g,'II');
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s-]/g,' ').replace(/\s+/g,' ').trim();
+
+const LINES = RAW.split('\n').map(l=>{
+  const [code,name]=l.split('|'); const [from,to]=name.split(' / ');
+  const L={code,base:code.split('-')[0].toLowerCase(),from:pretty(from),to:pretty(to)};
+  L.night = code[0]==='N'; L.rail = /METR|CPTM/.test(name); L.term = /TERM\./.test(to);
+  L.local = !L.night && !L.rail && !L.term; L.top = TOP5.some(t=>t.code===code);
+  const it=ITIN[code]; L.itin=it||null;
+  L.nm=norm(name); L.itnorm=it?norm(it.dirs.map(d=>d.path.replace(/@/g,'')).join(' ')):'';
+  return L;
+});
+const byCode = c => LINES.find(l=>l.code===c);
+const $ = (s,r=document)=>r.querySelector(s);
+const el = (t,a={},...kids)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='text')e.textContent=a[k];else e.setAttribute(k,a[k])}kids.flat().forEach(c=>c!=null&&e.append(c.nodeType?c:document.createTextNode(c)));return e};
+const plate = (l,lg)=>el('span',{class:'plate'+(l.night?' night':'')+(lg?' lg':''),text:l.code});
+
+/* ============ MAPA OLHO VIVO (BUSCA -> 2 SENTIDOS -> MAPA) ============ */
+let ovMap=null, ovMarkers=[], ovTimer=null, ovActiveChoice=null;
+const TCT_COORDS=[-23.5977,-46.4024];
+
+function destroyOvMap(){
+  if(ovTimer){clearInterval(ovTimer);ovTimer=null;}
+  ovMarkers=[];
+  if(ovMap){ovMap.remove();ovMap=null;}
+}
+
+function createOvMap(container){
+  if(!container || typeof L==='undefined') return;
+  if(ovMap){ovMap.remove();ovMap=null;}
+  ovMap=L.map(container).setView(TCT_COORDS, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,
+    attribution:'&copy; OpenStreetMap | SPTrans Olho Vivo'
+  }).addTo(ovMap);
+
+  L.circleMarker(TCT_COORDS,{radius:9,fillColor:'#c92a30',color:'#fff',weight:2,fillOpacity:1})
+    .addTo(ovMap)
+    .bindPopup('<b>Terminal Cidade Tiradentes</b><br>Ponto de referência do terminal');
+}
+
+function plotOvVehicles(vehicles, direction){
+  if(!ovMap) return;
+  ovMarkers.forEach(m=>ovMap.removeLayer(m));
+  ovMarkers=[];
+  const bounds=[];
+  vehicles.forEach(v=>{
+    const cls = direction===2 ? 'bus-pin volta' : 'bus-pin';
+    const icon=L.divIcon({className:'',html:`<div class="${cls}">🚌 ${v.linha}</div>`,iconSize:[76,24],iconAnchor:[38,12]});
+    const m=L.marker([v.py,v.px],{icon}).addTo(ovMap);
+    m.bindPopup(`<b>Linha ${v.linha}</b><br>Sentido: <b>${direction===1?'Ida ('+v.destino+')':'Volta ('+v.destino+')'}</b><br>Prefixo do carro: ${v.p}<br><small>Atualizado: ${v.ta||new Date().toLocaleTimeString('pt-BR')}</small>`);
+    ovMarkers.push(m);
+    bounds.push([v.py,v.px]);
+  });
+  if(bounds.length>1) ovMap.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+  else if(bounds.length===1) ovMap.setView(bounds[0], 15);
+}
+
+function generateSimVehicles(lineObj, direction){
+  const destLabel = direction===1 ? lineObj.to : lineObj.from;
+  const list=[];
+  for(let i=0;i<3;i++){
+    const dirSign = direction===1 ? 1 : -1;
+    const latOffset = dirSign * (0.004 + i*0.006) + Math.sin(Date.now()/5000 + i)*0.002;
+    const lngOffset = dirSign * (-0.005 - i*0.007) + Math.cos(Date.now()/5000 + i)*0.002;
+    list.push({
+      linha:lineObj.code,
+      p:'4'+Math.floor(1100+Math.random()*8800),
+      destino:destLabel,
+      py:TCT_COORDS[0]+latOffset,
+      px:TCT_COORDS[1]+lngOffset,
+      ta:new Date().toLocaleTimeString('pt-BR')
+    });
+  }
+  return list;
+}
+
+async function loadDirectionOnMap(lineObj, direction, mapStageEl){
+  ovActiveChoice = {line:lineObj, direction};
+  const destLabel = direction===1 ? lineObj.to : lineObj.from;
+  const origLabel = direction===1 ? lineObj.from : lineObj.to;
+
+  mapStageEl.hidden = false;
+  mapStageEl.replaceChildren(
+    el('div',{class:'ov-active-bar'},
+      el('div',{},
+        el('strong',{text:`${lineObj.code} · Sentido ${direction}: ${origLabel} → ${destLabel}`}),
+        el('small',{text:direction===1?'Sentido Principal (Ida)':'Sentido Secundário (Retorno)'})
+      ),
+      el('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},
+        (()=>{
+          const bSwitch=el('button',{class:'btn ghost sm',type:'button',text:'Inverter sentido'});
+          bSwitch.onclick=()=>loadDirectionOnMap(lineObj, direction===1?2:1, mapStageEl);
+          return bSwitch;
+        })(),
+        (()=>{
+          const bRef=el('button',{class:'btn sm',type:'button',text:'Atualizar agora'});
+          bRef.onclick=()=>fetchAndRenderDirection(lineObj, direction);
+          return bRef;
+        })()
+      )
+    ),
+    el('div',{id:'ovMapCanvas',class:'map-canvas'}),
+    el('div',{class:'map-status'},
+      el('span',{id:'ovStatus',text:'⏳ Buscando posições GPS dos ônibus deste sentido...'}),
+      el('a',{href:`https://olhovivo.sptrans.com.br/#sp?cat=Linha&l=${encodeURIComponent(lineObj.code.split('-')[0])}`,target:'_blank',rel:'noopener',text:'Abrir referência no Olho Vivo SPTrans ↗'})
+    )
+  );
+
+  createOvMap($('#ovMapCanvas'));
+  await fetchAndRenderDirection(lineObj, direction);
+
+  if(ovTimer) clearInterval(ovTimer);
+  ovTimer = setInterval(()=>fetchAndRenderDirection(lineObj, direction), 30000);
+}
+
+async function fetchAndRenderDirection(lineObj, direction){
+  const statusEl = $('#ovStatus');
+  if(!statusEl) return;
+  const destLabel = direction===1 ? lineObj.to : lineObj.from;
+  statusEl.textContent = '⏳ Consultando GPS ao vivo na SPTrans...';
+
+  try{
+    const resp = await fetch(`/api/olhovivo?linha=${encodeURIComponent(lineObj.code)}&sentido=${direction}`);
+    const data = await resp.json();
+    if(!resp.ok || data.error) throw new Error(data.error || ('HTTP '+resp.status));
+    const vehicles = (data.vehicles || []).map(v=>Object.assign({}, v, {destino: v.destino || destLabel}));
+    plotOvVehicles(vehicles, direction);
+    statusEl.textContent = `✅ ${vehicles.length} ônibus localizado(s) no sentido ${destLabel} às ${new Date().toLocaleTimeString('pt-BR')} (atualiza a cada 30s).`;
+  }catch(err){
+    // Se o backend Flask/SPTrans não estiver ativo ou sem veículos na hora, exibe simulação fiel para visualização imediata
+    const sim = generateSimVehicles(lineObj, direction);
+    plotOvVehicles(sim, direction);
+    statusEl.textContent = `🟡 Exibindo ${sim.length} ônibus simulados no sentido ${destLabel} (servidor local/SPTrans offline: ${err.message}).`;
+  }
+}
+
+/* ============ PÁGINA ============ */
+let drawLines=()=>{}, setFilter=()=>{};
+(function(){
+  const nNight=LINES.filter(l=>l.night).length, nRail=LINES.filter(l=>l.rail).length, nIt=LINES.filter(l=>l.itin&&!l.itin.partial).length;
+  $('#factLines').textContent=LINES.length;
+  const strip=$('#strip');
+  [[LINES.length,'linhas no terminal'],[nRail,'ligam a metrô ou trem'],[nNight,'linhas noturnas (N)'],[nIt,'com itinerário rua por rua']].forEach(s=>strip.append(el('div',{class:'stat'},el('b',{text:s[0]}),el('span',{text:s[1]}))));
+
+  // Top 5
+  const tl=$('#top5List');
+  TOP5.forEach((t,i)=>{const l=byCode(t.code);
+    const b=el('button',{class:'btn sm',type:'button',text:'Ver itinerário'});b.onclick=()=>openLine(t.code);
+    tl.append(el('li',{class:'t5'},
+      el('div',{class:'rank',text:i+1}),
+      el('div',{class:'main'},
+        el('div',{class:'head'},plate(l,true),el('b',{text:l.from+' → '+l.to}),el('span',{class:'tag '+(t.kind==='official'?'red':t.kind==='indicator'?'soft':''),text:KIND[t.kind]})),
+        el('div',{class:'figure',text:t.figure}),
+        el('p',{class:'why',text:t.why})),
+      b));
+  });
+  $('#top5Note').textContent='Só as posições 1 e 2 têm número divulgado; a 3 tem um sinal de demanda da própria SPTrans; as posições 4 e 5 são estimativas feitas a partir do papel de cada linha na rede. Dados de passageiros: ranking de maio de 2026 (SPTrans, via MobiBrasil).';
+
+  // lista com filtros
+  const FILTERS=[['all','Todas',()=>true],['top','Mais cheias',l=>l.top],['rail','Metrô e trem',l=>l.rail],['term','Terminais',l=>l.term],['local','Bairros',l=>l.local],['night','Noturnas',l=>l.night]];
+  let cur='all'; const rowsEl=$('#rows'), qEl=$('#q'); const chips=$('#chips');
+  FILTERS.forEach(f=>{const b=el('button',{class:'chip',type:'button','aria-pressed':f[0]==='all',text:f[1]});b.dataset.k=f[0];b.onclick=()=>{setFilter(f[0])};chips.append(b)});
+  setFilter=k=>{cur=k;[...chips.children].forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k));drawLines()};
+  drawLines=function(){
+    const fn=FILTERS.find(f=>f[0]===cur)[2], q=norm(qEl.value);
+    const list=LINES.filter(l=>fn(l)&&(!q||norm(l.code).includes(q)||l.nm.includes(q)||l.itnorm.includes(q)));
+    $('#count').textContent=`Mostrando ${list.length} de ${LINES.length} linhas`;
+    rowsEl.replaceChildren();
+    if(!list.length){rowsEl.append(el('div',{class:'empty',text:'Nenhuma linha encontrada. Tente outro destino ou limpe o filtro.'}));return}
+    
+    const favs=store.get('tira_favs',{});
+    list.sort((a,b)=>{
+      const fa=favs[a.code]?1:0;
+      const fb=favs[b.code]?1:0;
+      return fb-fa;
+    });
+
+    list.forEach(l=>{
+      const isFav=favs[l.code];
+      const starBtn=el('button',{type:'button','aria-label':isFav?'Remover dos favoritos':'Favoritar linha',class:'fav-star'+(isFav?' active':''),text:isFav?'★':'☆'});
+      starBtn.onclick=(e)=>{
+        e.stopPropagation();
+        const curFav=store.get('tira_favs',{});
+        if(curFav[l.code]) delete curFav[l.code]; else curFav[l.code]=true;
+        store.set('tira_favs',curFav);
+        drawLines();
+      };
+
+      const b=el('button',{class:'btn sm',type:'button','aria-label':'Ver detalhes da linha '+l.code,text:'Ver detalhes'});b.onclick=()=>openLine(l.code);
+      
+      let areaBadge = '';
+      let badgeStyle = '';
+      if(l.night) { areaBadge = 'Área 3/4 Noturna'; badgeStyle='background:#2d1518;color:#ff858a;border:1px solid #57282e;'; }
+      else if(l.code.startsWith('3')) { areaBadge = 'Área 3 (Nordeste)'; badgeStyle='background:#fff3cd;color:#856404;border:1px solid #ffeeba;'; }
+      else if(l.code.startsWith('4')) { areaBadge = 'Área 4 (Leste)'; badgeStyle='background:#fdeeed;color:#8b1a1f;border:1px solid #f3d9d7;'; }
+      else { areaBadge = 'SPTrans'; badgeStyle='background:var(--tint);color:var(--heading);'; }
+
+      rowsEl.append(el('div',{class:'row'+(isFav?' fav-row':'')},
+        el('div',{style:'display:flex;align-items:center;gap:8px'}, starBtn, plate(l)),
+        el('div',{class:'route'},el('b',{text:l.from}),el('i',{text:'→'}),l.to),
+        b,
+        el('div',{class:'tags'},
+          el('span',{class:'tag',style:badgeStyle,text:areaBadge}),
+          l.top?el('span',{class:'tag red',text:'Mais cheia'}):null,
+          l.night?el('span',{class:'tag',text:'Noturna'}):null,
+          l.rail?el('span',{class:'tag soft',text:'Metrô/Trem'}):null,
+          l.term?el('span',{class:'tag soft',text:'Terminal'}):null
+        )));
+    });
+  };
+  qEl.addEventListener('input',drawLines); drawLines();
+
+  // busca do hero + atalhos
+  const hq=$('#hq');
+  const goSearch=()=>{qEl.value=hq.value;setFilter('all');};
+  hq.addEventListener('input',()=>{qEl.value=hq.value;drawLines()});
+  hq.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();goSearch();$('#linhas').scrollIntoView({behavior:'smooth'})}});
+  $('#hgo').addEventListener('click',goSearch);
+  [['Metrô Itaquera','itaquera',null],['Guaianases','guaianases',null],['Centro (Pq. D. Pedro II)','pedro',null],['Mais cheias','', 'top'],['Noturnas','', 'night']].forEach(([t,q,f])=>{
+    const b=el('button',{class:'chip',type:'button',text:t});
+    b.onclick=()=>{hq.value=q;qEl.value=q;setFilter(f||'all');$('#linhas').scrollIntoView({behavior:'smooth'})};
+    $('#quick').append(b)});
+
+  // abas extras
+  const P={
+    map(){
+      const shell = el('div',{class:'ov-shell'});
+      const inputOv = el('input',{
+        id:'ovLineInput',
+        type:'search',
+        placeholder:'Digite o código ou destino da linha (ex.: 4313-10, 3787, Itaquera) e aperte Enter...',
+        autocomplete:'off'
+      });
+      const btnSearch = el('button',{class:'btn',type:'button',text:'Buscar sentidos'});
+      const dirsContainer = el('div',{class:'ov-dir-list',hidden:''});
+      const mapStage = el('div',{class:'ov-map-stage',hidden:''});
+
+      function searchRegisteredLine(rawQuery){
+        const q = norm(rawQuery);
+        destroyOvMap();
+        mapStage.hidden = true;
+        mapStage.replaceChildren();
+        dirsContainer.replaceChildren();
+
+        if(!q){
+          dirsContainer.hidden = false;
+          dirsContainer.append(el('div',{class:'empty',text:'Digite o código ou destino de uma linha cadastrada e pressione Enter.'}));
+          return;
+        }
+
+        const matches = LINES.filter(l => norm(l.code).includes(q) || l.base.includes(q) || l.nm.includes(q));
+        dirsContainer.hidden = false;
+
+        if(!matches.length){
+          dirsContainer.append(el('div',{class:'empty',text:`Nenhuma linha cadastrada encontrada para "${rawQuery}". Tente códigos como 4313-10, 3787-10, 407L-10 ou destinos como Itaquera.`}));
+          return;
+        }
+
+        // Se encontrou mais de uma linha (ex: digitou "Itaquera"), permite escolher a linha e mostra os 2 sentidos
+        const targetLines = matches.slice(0, 4);
+        dirsContainer.append(el('p',{class:'help',text:`Selecione o sentido desejado para abrir o mapa em tempo real:`}));
+
+        targetLines.forEach(lineObj => {
+          [1, 2].forEach(dir => {
+            const orig = dir === 1 ? lineObj.from : lineObj.to;
+            const dest = dir === 1 ? lineObj.to : lineObj.from;
+            const card = el('button',{class:'ov-dir-card',type:'button'},
+              el('div',{style:'display:flex;align-items:center;gap:12px;min-width:0'},
+                plate(lineObj),
+                el('div',{class:'ov-dir-info'},
+                  el('span',{class:'ov-dir-badge',text:`Sentido ${dir} · ${dir===1?'Ida':'Volta'}`}),
+                  el('span',{class:'ov-dir-title',text:`${orig} → ${dest}`}),
+                  el('span',{class:'ov-dir-sub',text:'Clique para visualizar os ônibus deste sentido no mapa'})
+                )
+              ),
+              el('span',{class:'ov-dir-arrow',text:'Ver no mapa →'})
+            );
+            card.onclick = () => {
+              dirsContainer.querySelectorAll('.ov-dir-card').forEach(c=>c.removeAttribute('aria-current'));
+              card.setAttribute('aria-current','true');
+              loadDirectionOnMap(lineObj, dir, mapStage);
+            };
+            dirsContainer.append(card);
+          });
+        });
+      }
+
+      inputOv.addEventListener('keydown', e => {
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          searchRegisteredLine(inputOv.value);
+        }
+      });
+      btnSearch.onclick = () => searchRegisteredLine(inputOv.value);
+
+      const quickWrap = el('div',{class:'quick'},el('small',{text:'Exemplos rápidos:'}));
+      ['4313-10','3787-10','407L-10','407P-10','3064-10'].forEach(code => {
+        const b = el('button',{class:'chip',type:'button',text:code});
+        b.onclick = () => { inputOv.value = code; searchRegisteredLine(code); };
+        quickWrap.append(b);
+      });
+
+      const searchBox = el('div',{class:'ov-search-box'},
+        el('label',{for:'ovLineInput',style:'font-weight:700;color:var(--heading)',text:'Qual linha cadastrada você deseja rastrear?'}),
+        el('div',{class:'ov-search-row'}, inputOv, btnSearch),
+        quickWrap
+      );
+
+      shell.append(searchBox, dirsContainer, mapStage);
+      return [
+        el('h3',{text:'Consulta de frota em tempo real (Estilo Olho Vivo SPTrans)'}),
+        el('p',{class:'help',text:'Pesquise uma linha do Terminal Cidade Tiradentes, aperte Enter para listar os dois sentidos e clique no sentido desejado para abrir o mapa.',style:'margin-bottom:14px'}),
+        shell
+      ];
+    },
+    rail(){const p=el('div',{class:'pl'});LINES.filter(l=>l.rail).forEach(l=>p.append(el('div',{},plate(l),el('span',{class:'t',text:l.from+' → '+l.to}))));
+      return [el('h3',{text:'Ligações com metrô e trem'}),el('p',{class:'help',text:'Itaquera, Tatuapé, Penha, Bresser-Mooca e Guilhermina-Esperança estão na Linha 3-Vermelha. Itaquera, Tatuapé e Guaianases também têm a Linha 11-Coral da CPTM.',style:'margin-bottom:14px'}),p]},
+    night(){const p=el('div',{class:'pl'});LINES.filter(l=>l.night).forEach(l=>p.append(el('div',{},plate(l),el('span',{class:'t',text:l.from+' → '+l.to}))));
+      return [el('h3',{text:'Linhas noturnas'}),el('p',{class:'help',text:'Nesta lista, as noturnas começam com N e terminam em -11. Cobrem Itaquera, São Mateus, Metalúrgicos, Barro Branco, Vila Yolanda e Guaianases.',style:'margin-bottom:14px'}),p]},
+    roads(){const ul=el('ul',{style:'margin:10px 0 0;padding-left:20px'});['Estrada do Iguatemi','Avenida Inácio Monteiro','Avenida dos Metalúrgicos','Avenida dos Têxteis','Avenida Sara Kubitschek'].forEach(v=>ul.append(el('li',{text:v})));
+      return [el('h3',{text:'Principais vias citadas'}),el('p',{text:'Estas avenidas aparecem na reportagem do Diário do Transporte como eixos usados pelas linhas da região. Nos itinerários, a Av. Souza Ramos, a R. Márcio Beck Machado e a Estr. do Iguatemi aparecem na saída de quase todas as linhas para fora do bairro.'}),ul]}
+  };
+  const xp=$('#xpanel');
+  function tab(k){
+    destroyOvMap();
+    document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.k===k));
+    xp.setAttribute('aria-labelledby','t-'+k);
+    xp.replaceChildren(...P[k]());
+  }
+  document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>tab(t.dataset.k)); tab('map');
+})();
+
+/* ============ DETALHES DA LINHA ============ */
+const scrim=$('#scrim'),lineDrawer=$('#lineDrawer'),drawer=$('#drawer'),chat=$('#chat');
+function closeLine(){lineDrawer.classList.remove('open');lineDrawer.setAttribute('aria-hidden','true');if(!drawer.classList.contains('open'))scrim.classList.remove('open')}
+function openLine(code){
+  const l=byCode(code);if(!l)return;
+  $('#ldPlate').replaceChildren(plate(l,true));$('#ldTitle').textContent=l.from+' → '+l.to;
+  const body=$('#ldBody');body.replaceChildren();
+  const tags=el('div',{class:'tags'},l.top?el('span',{class:'tag red',text:'Mais cheia'}):null,l.night?el('span',{class:'tag',text:'Noturna'}):null,l.rail?el('span',{class:'tag soft',text:'Metrô/Trem'}):null,l.term?el('span',{class:'tag soft',text:'Terminal'}):null,el('span',{class:'tag',text:'Código '+l.code}));
+  body.append(tags);
+  const t=TOP5.findIndex(x=>x.code===code);
+  if(t>=0){const x=TOP5[t];body.append(el('div',{class:'box hl'},el('b',{text:`Nº ${t+1} entre as mais cheias do terminal · ${KIND[x.kind]}`}),el('p',{text:x.figure+'. '+x.why,style:'margin-top:6px'})))}
+  else body.append(el('div',{class:'box'},el('b',{text:'Lotação'}),el('p',{class:'help',text:'Sem número de passageiros divulgado para esta linha.',style:'margin-top:4px'})));
+  const sec=el('div',{class:'d-sec'},el('h3',{text:'Itinerário rua por rua'}));
+  const it=l.itin;
+  if(!it){
+    sec.append(el('div',{class:'box'},el('p',{text:'Não encontrei o itinerário desta linha nas fontes consultadas.'}),el('p',{class:'help',text:'Consulte o trajeto atualizado no site ou no app oficial da SPTrans (Olho Vivo).',style:'margin-top:6px'})),
+      el('div',{style:'margin-top:10px'},el('a',{class:'btn ghost sm',href:'https://www.sptrans.com.br',target:'_blank',rel:'noopener',text:'Abrir site da SPTrans'})));
+  }else{
+    let cur=0;const holder=el('div');
+    const tabs=el('div',{class:'dir-tabs'});
+    const render=()=>{holder.replaceChildren();const d=it.dirs[cur];
+      holder.append(el('p',{class:'help',text:`${d.label} · ${d.streets.length} paradas e vias`,style:'margin-bottom:10px'}));
+      const ol=el('ol',{class:'steps'});
+      d.streets.forEach((s,i)=>{const isT=s.startsWith('@');const li=el('li',{class:isT?'term':''},isT?s.slice(1):s);
+        if(i===0)li.append(el('small',{text:'Início'}));else if(i===d.streets.length-1)li.append(el('small',{text:'Fim'}));ol.append(li)});
+      holder.append(ol);
+      [...tabs.children].forEach((b,j)=>b.setAttribute('aria-pressed',j===cur));};
+    if(it.dirs.length>1)it.dirs.forEach((d,j)=>{const b=el('button',{class:'chip',type:'button','aria-pressed':j===0,text:d.label});b.onclick=()=>{cur=j;render()};tabs.append(b)});
+    if(it.dirs.length>1)sec.append(tabs);
+    sec.append(holder);render();
+    if(it.partial)sec.append(el('div',{class:'box',style:'margin-top:12px'},el('b',{text:'Itinerário parcial'}),el('p',{class:'help',text:it.note,style:'margin-top:4px'})));
+    else if(it.note)sec.append(el('p',{class:'help',text:it.note,style:'margin-top:12px'}));
+    if(it.refs)sec.append(el('p',{class:'help',text:it.refs,style:'margin-top:8px'}));
+    sec.append(el('p',{class:'help',text:'Sequência de pontos de parada da SPTrans. Confirme no site ou app oficial antes de viajar.',style:'margin-top:10px'}));
+  }
+  body.append(sec);
+  const acts=el('div',{class:'d-acts'});
+  const ask=el('button',{class:'btn sm',type:'button',text:'Perguntar ao Tira'});ask.onclick=()=>{closeLine();openChat();send('Itinerário da linha '+l.code)};acts.append(ask);
+  if(it){const cp=el('button',{class:'btn ghost sm',type:'button',text:'Copiar itinerário'});
+    cp.onclick=async()=>{const txt=`Linha ${l.code} · ${l.from} → ${l.to}\n`+it.dirs.map(d=>d.label+':\n'+d.streets.map((s,i)=>(i+1)+'. '+s.replace('@','')).join('\n')).join('\n\n');
+      try{await navigator.clipboard.writeText(txt);cp.textContent='Copiado'}catch(e){cp.textContent='Não foi possível copiar'}setTimeout(()=>cp.textContent='Copiar itinerário',2000)};acts.append(cp)}
+  body.append(acts);
+  body.scrollTop=0;lineDrawer.classList.add('open');lineDrawer.setAttribute('aria-hidden','false');scrim.classList.add('open');
+}
+$('#closeLine').onclick=closeLine;
+
+/* ============ CHATBOT ============ */
+const DEFAULT_ALGO={minPts:4.5,exactDest:15,genericFactor:0.4,compoundPenalty:0.25};
+let LOG=store.get('tira_log',[]), RULES=store.get('tira_rules',[]), OVERRIDES=store.get('tira_overrides',{}), ALGO=Object.assign({},DEFAULT_ALGO,store.get('tira_algo',{}));
+const THRESHOLD=3;
+const listOf = fn => LINES.filter(fn);
+const STOP=new Set(['para','pra','como','qual','quais','tem','que','uma','por','com','das','dos','nas','nos','chegar','ir','vai','vou','onde','linha','linhas','onibus','term','terminal','tiradentes','cidade','metro','cptm','sobre','quero','saber','existe','passa','passam','itinerario','rota','trajeto','caminho','percurso','ruas','rua','ate','até','leva','levam','sai','saem','indo','destino','destinos','alguma','algum','temos','gostaria','preciso','pegar','tomar','embarcar','consegue','consigo','municipio','municipios','bairro','bairros','estacao','estacoes','ponto','pontos','avenida','estrada','praca','largo','vila','jardim','parque','conjunto','setor']);
+const GENERIC_PARTS=new Set(['sao','santa','santo','jose','joao','paulo','pedro','luis','luiz','carlos','antonio','francisco','maria','ana','miguel','mateus','campos','campo','grande','novo','nova','velho','velha','alto','baixo','sul','norte','leste','oeste','central','centro','primeiro','segundo','boa','vista','vila','jardim','parque','paulista','branco','negro','verde','azul','rosa','ouro','prata','sol','lua','rio','agua','pedra','serra','morro','vale','monte','ilha','praia','cruz','esperanca','alegria','feliz','paz','gloria','vitoria','liberdade','uniao','progresso','trabalho','trabalhadores','metalurgicos','textis','texteis']);
+const itinText=(l,max=14)=>{const d=l.itin.dirs[0];const s=d.streets.map(x=>x.replace('@','')).filter((x,i,a)=>a.indexOf(x)===i);return `${d.label}: ${s.slice(0,max).join(' → ')}${s.length>max?' → …':''}`};
+
+const KB=[
+ {id:'saudacao',kw:[['oi',3],['ola',3],['bom dia',4],['boa tarde',4],['boa noite',4],['e ai',3],['tudo bem',3]],
+  a:()=>({text:'Olá! Eu sou o Tira, assistente das linhas do Terminal Cidade Tiradentes. Pergunte por um código (ex.: 3787-10), um destino (ex.: Itaquera), o itinerário de uma linha ou as linhas mais lotadas.'})},
+ {id:'ajuda',kw:[['ajuda',4],['o que voce faz',5],['o que voce sabe',5],['como funciona',3],['menu',3]],
+  a:()=>({text:'Posso responder sobre: código, destino e itinerário de cada linha, as 5 mais cheias, linhas que ligam a metrô e trem, linhas noturnas, história do bairro, população e tempo de viagem.'})},
+ {id:'total',kw:[['quantas linhas',6],['total de linhas',6],['numero de linhas',6],['quantidade de linhas',6],['quantas',2],['total',2]],
+  a:()=>({text:`O terminal tem ${LINES.length} linhas nesta base: ${listOf(l=>l.night).length} noturnas, ${listOf(l=>l.rail).length} com ligação a metrô ou trem e ${listOf(l=>l.term).length} que seguem para outros terminais.`})},
+ {id:'lotacao',kw:[['mais cheias',7],['mais cheia',7],['mais lotadas',7],['mais lotada',7],['lotada',5],['lotadas',5],['lotacao',6],['superlotacao',6],['superlotada',6],['cheia',4],['cheias',4],['top 5',7],['ranking',5],['mais movimentadas',7],['mais movimentada',7],['mais usadas',6],['movimentadas',5],['principais',3]],
+  a:()=>({text:'As 5 linhas mais cheias do terminal:\n1) 4313-10: 565.870 passageiros em maio/2026 (5ª da cidade)\n2) 407L-10: 462.347 passageiros (20ª da cidade)\n3) 407P-10: reforçada pela SPTrans na greve da CPTM de 04/08/2026\n4) 4210-10: estimativa, mesmo corredor da 4313-10\n5) 3787-10: estimativa, liga ao Metrô Itaquera\nSó as duas primeiras têm número divulgado.',lines:TOP5.map(t=>byCode(t.code))})},
+ {id:'noturnas',kw:[['noturna',5],['noturnas',5],['madrugada',5],['de noite',4],['a noite',3],['depois da meia noite',6],['linhas n',3]],
+  a:()=>({text:'As linhas noturnas começam com N e funcionam na madrugada:',lines:listOf(l=>l.night)})},
+ {id:'integracao',kw:[['metro',3],['trem',3],['cptm',3],['integracao',4],['estacao',3],['linha 3',3],['linha vermelha',4],['coral',3]],
+  a:()=>({text:'Estas linhas ligam o terminal ao metrô ou à CPTM:',lines:listOf(l=>l.rail)})},
+ {id:'terminais',kw:[['outros terminais',6],['terminais',3],['terminal sao mateus',3],['dom pedro',3],['centro',3]],
+  a:()=>({text:'Linhas que seguem para outros terminais:',lines:listOf(l=>l.term&&!/Cid\. Tiradentes/.test(l.to))})},
+ {id:'bairros',kw:[['dentro do bairro',6],['no bairro',4],['circular',4],['bairros',3],['locais',3],['internas',4]],
+  a:()=>({text:'Linhas que atendem o próprio bairro e vizinhos (Metalúrgicos, Barro Branco, Vila Yolanda, Santa Etelvina, Setor IIB):',lines:listOf(l=>l.local||/Cid\. Tiradentes/.test(l.to)).slice(0,10)})},
+ {id:'codigo',kw:[['o que significa',5],['codigo',4],['sufixo',4],['letra n',5],['significa',3],['numero da linha',5],['-10',2],['-11',2]],
+  a:()=>({text:'O código tem quatro caracteres e identifica a linha. Nesta lista, as que começam com N são noturnas e terminam em -11; as demais terminam em -10, e a 3064 tem uma variação -41.'})},
+ {id:'historia',kw:[['historia',6],['origem',4],['como surgiu',6],['fundacao',6],['fundado',5],['comecou',4],['criado',3],['fazenda',4],['santa etelvina',5],['inauguracao',4],['quando',2]],
+  a:()=>({text:'O bairro nasce da antiga Fazenda Santa Etelvina, comprada por volta de 1890 por Rodovalho. As obras do conjunto habitacional começaram em 1981 com Cohab-SP e CDHU, e as primeiras unidades foram entregues em 1984, formando o maior complexo de habitação popular da América Latina. Não encontrei a data de inauguração do terminal nas fontes consultadas.'})},
+ {id:'gratuidade',kw:[['tarifa zero',7],['gratuito',5],['gratuita',5],['gratuidade',6],['de graca',5],['erundina',6],['pitta',5],['1991',4]],
+  a:()=>({text:'Em 1991, na gestão da prefeita Luíza Erundina, cinco linhas circulares ligavam o bairro a um terminal central com viagem gratuita dentro da área. Em 1998, Celso Pitta encerrou a gratuidade em quatro das cinco linhas.'})},
+ {id:'populacao',kw:[['populacao',6],['habitantes',6],['moradores',5],['quantas pessoas',6],['tamanho',3],['area',2],['km',2],['unidades habitacionais',6],['cohab',4],['conjuntos',4]],
+  a:()=>({text:'Cidade Tiradentes tem cerca de 200 mil habitantes em aproximadamente 15 km², com cerca de 40 mil unidades habitacionais nos conjuntos da Cohab, da CDHU e de empreiteiras.'})},
+ {id:'tempo',kw:[['quanto tempo',5],['demora',5],['tempo de viagem',6],['duracao',4],['horas ate o centro',6],['longe',4]],
+  a:()=>({text:'Segundo reportagem de 2015, o tempo de viagem do bairro até o centro passa de uma hora e meia. Por isso as ligações com metrô e trem pesam tanto na rotina dos moradores.'})},
+ {id:'nome',kw:[['por que tiradentes',7],['nome do bairro',6],['origem do nome',6],['significado do nome',6],['quem foi tiradentes',6]],
+  a:()=>({text:'O bairro foi batizado em homenagem a Tiradentes, o mártir da Inconfidência Mineira.'})},
+ {id:'vias',kw:[['avenida',4],['avenidas',4],['estrada do iguatemi',7],['iguatemi',5],['sara kubitschek',6],['inacio monteiro',6],['vias',4]],
+  a:()=>({text:'As principais vias citadas são a Estrada do Iguatemi e as avenidas Inácio Monteiro, dos Metalúrgicos, dos Têxteis e Sara Kubitschek. Linhas que passam pela Estr. do Iguatemi:',lines:listOf(l=>l.itnorm.includes('iguatemi'))})},
+ {id:'obrigado',kw:[['obrigado',4],['obrigada',4],['valeu',4],['brigado',4],['tchau',4]],
+  a:()=>({text:'Por nada! Se a resposta não ajudou, toque no 👎 para o time melhorar o Tira.'})}
+];
+KB.forEach(e=>e.kw=e.kw.map(([p,w])=>[norm(p),w]));
+
+const hasPhrase=(n,p)=>{const s=' '+n+' ';return s.includes(' '+p+' ')||s.includes(' '+p+'s ')};
+function scoreKw(n,kws){let s=0;const hit=[];for(const [p,w] of kws){if(hasPhrase(n,p)){s+=p.includes(' ')?w*1.5:w;hit.push(p)}}return{s:Math.round(s*10)/10,hit}}
+const ITW=['itinerario','rota','trajeto','caminho','ruas','percurso','passa por','por onde'];
+
+function candidates(text){
+  const n=norm(text), out=[];
+  if(n && OVERRIDES[n]){
+    out.push({id:'correcao-direta',score:999,hit:[n],ans:()=>({text:OVERRIDES[n].answer,lines:OVERRIDES[n].lines||null})});
+  }
+  for(const e of KB){const r=scoreKw(n,e.kw);if(r.s>0)out.push({id:e.id,score:r.s,hit:r.hit,ans:e.a})}
+  RULES.forEach(e=>{const r=scoreKw(n,e.kw);if(r.s>0)out.push({id:'regra-'+e.id,score:r.s+5,hit:r.hit,ans:()=>({text:e.answer})})});
+  const codes=[...n.matchAll(/\b([0-9]{3}[0-9a-z]|n[0-9]{3})\b(?:-(\d{2}))?/g)].map(m=>m[1]);
+  const found=LINES.filter(l=>codes.includes(l.base));
+  if(found.length){
+    const wantsIt=ITW.some(w=>n.includes(w));
+    out.push({id:wantsIt?'itinerario-da-linha':'linha-por-codigo',score:wantsIt?12:10,hit:codes,ans:()=>{
+      if(found.length>1)return{text:`Encontrei ${found.length} linhas com esse código:`,lines:found};
+      const l=found[0];
+      let t=`A linha ${l.code} faz o trajeto ${l.from} → ${l.to}.`+(l.night?' É uma linha noturna.':'');
+      const tp=TOP5.findIndex(x=>x.code===l.code);if(tp>=0)t+=` Está em ${tp+1}º lugar entre as mais cheias do terminal (${TOP5[tp].figure}).`;
+      if(wantsIt||true){t+=l.itin?`\n\n${itinText(l)}\n\nToque em "Ver itinerário completo" para ver todas as ruas.`:'\n\nNão encontrei o itinerário desta linha nas fontes consultadas. Confirme no site ou app da SPTrans.'}
+      return{text:t,lines:[l],open:l.code}}});
+  }
+  const rawTokens=n.split(' ').filter(t=>t.length>=3&&/^[a-z0-9]+$/.test(t));
+  const cleanPhraseWords=n.replace(/[-]/g,' ').split(' ').filter(w=>w.length>=2&&!STOP.has(w)&&!/^[0-9]+$/.test(w));
+  const toks=rawTokens.filter(t=>t.length>=4&&!STOP.has(t)&&/^[a-z]+$/.test(t));
+
+  if(toks.length){
+    const destMatch=n.match(/(?:para|pra|ate|ir|chegar|vai|leva|destino)\s+(?:o|a|os|as|ao|a|no|na|em)?\s*([a-z\s]{4,})$/);
+    const targetPhrase=destMatch?destMatch[1].split(' ').filter(w=>w.length>=2&&!['o','a','os','as','ao','no','na','em','de','da','do','das','dos'].includes(w)).join(' '):cleanPhraseWords.join(' ');
+    const targetWords=targetPhrase?targetPhrase.split(' ').filter(w=>w.length>=3):toks;
+
+    const hasExactPhrase=(str,phr)=>phr.length>=4&&(' '+str+' ').includes(' '+phr+' ');
+    const hasWord=(str,w)=>(' '+str+' ').includes(' '+w+' ');
+
+    const scoredLines=LINES.map(l=>{
+      let pts=0;
+      const matchedTerms=[];
+      let exactDest=false, exactStreet=false;
+
+      if(targetWords.length>=2 && hasExactPhrase(l.nm, targetPhrase)){
+        pts+=Number(ALGO.exactDest); exactDest=true; matchedTerms.push(targetPhrase);
+      } else if(targetWords.length>=2 && hasExactPhrase(l.itnorm, targetPhrase)){
+        pts+=10; exactStreet=true; matchedTerms.push(targetPhrase);
+      }
+
+      let distinctHits=0;
+      let specificHits=0;
+      const gFactor=Number(ALGO.genericFactor);
+      for(const t of toks){
+        const isGeneric=GENERIC_PARTS.has(t);
+        const wFactor=isGeneric?gFactor:1.0;
+        if(hasWord(l.nm, t)){
+          pts+=5*wFactor;
+          distinctHits++;
+          if(!isGeneric)specificHits++;
+          if(!matchedTerms.includes(t))matchedTerms.push(t);
+        } else if(hasWord(l.itnorm, t)){
+          pts+=2.5*wFactor;
+          distinctHits++;
+          if(!isGeneric)specificHits++;
+          if(!matchedTerms.includes(t))matchedTerms.push(t);
+        }
+      }
+
+      if(targetWords.length>=2 && !exactDest && !exactStreet){
+        const coverage=distinctHits/targetWords.length;
+        if(coverage<1){
+          pts*=Number(ALGO.compoundPenalty)*coverage;
+        } else if(specificHits===0){
+          pts*=Math.min(0.3, Number(ALGO.compoundPenalty));
+        }
+      }
+
+      if(targetWords.length===1 && specificHits===0 && !exactDest){
+        pts*=gFactor;
+      }
+
+      return {line:l,pts:Math.round(pts*10)/10,matchedTerms,exactDest,exactStreet};
+    }).filter(x=>x.pts>=Number(ALGO.minPts)).sort((a,b)=>b.pts-a.pts);
+
+    if(scoredLines.length){
+      const best=scoredLines[0];
+      const minKeep=Math.max(Number(ALGO.minPts), best.pts*0.55);
+      const valid=scoredLines.filter(x=>x.pts>=minKeep);
+      const m=valid.map(x=>x.line);
+      const viaNome=valid.some(x=>x.exactDest||x.matchedTerms.some(t=>hasWord(x.line.nm,t)));
+      const label=targetPhrase||best.matchedTerms.join(' ');
+      const finalScore=Math.min(14, Math.round((best.pts+2)*10)/10);
+      out.push({
+        id:'linhas-por-destino',
+        score:finalScore,
+        hit:best.matchedTerms,
+        ans:()=>({
+          text:`Encontrei ${m.length} ${m.length===1?'linha':'linhas'} ${viaNome?'com destino ou passagem por':'que passam por'} "${label}":`,
+          lines:m
+        })
+      });
+    }
+  }
+  return out.sort((a,b)=>b.score-a.score);
+}
+function answer(text){
+  const c=candidates(text), top=c[0];
+  if(!top||top.score<THRESHOLD)return{id:'fallback',score:top?top.score:0,fallback:true,cands:c.slice(0,3),res:{text:'Não encontrei nenhuma linha, destino ou informação correspondente na base oficial do Terminal Cidade Tiradentes. Para evitar informações incorretas, não vou supor um trajeto. Tente buscar por um código de linha (ex.: 3787-10), um destino atendido (ex.: Itaquera, Guaianases, Tatuapé) ou consulte o app/site da SPTrans.'}};
+  return{id:top.id,score:top.score,fallback:false,cands:c.slice(0,3),res:top.ans()};
+}
+
+/* ---- UI do chat ---- */
+const logEl=$('#log'),input=$('#chatInput');
+function openChat(){chat.classList.add('open');chat.setAttribute('aria-hidden','false');$('#fab').hidden=true;setTimeout(()=>input.focus(),150)}
+function closeChat(){chat.classList.remove('open');chat.setAttribute('aria-hidden','true');$('#fab').hidden=false}
+['#fab','#openChatTop'].forEach(s=>$(s).onclick=openChat);$('#closeChat').onclick=closeChat;
+
+function addMsg(who,text,opts={}){
+  const m=el('div',{class:'msg '+who},el('div',{class:'bubble',text}));
+  if(opts.logId)m.dataset.logId=opts.logId;
+  if(opts.lines&&opts.lines.length){const box=el('div',{class:'mlines'});opts.lines.slice(0,8).forEach(l=>box.append(el('div',{},plate(l),el('span',{class:'t',text:l.from+' → '+l.to}))));
+    if(opts.lines.length>8)box.append(el('div',{},el('span',{class:'t',text:`e mais ${opts.lines.length-8} no quadro de linhas`})));m.append(box)}
+  if(opts.open){const b=el('button',{class:'btn sm',type:'button',text:'Ver itinerário completo'});b.onclick=()=>{closeChat();openLine(opts.open)};m.append(b)}
+  if(opts.logId){
+    const fb=el('div',{class:'fb'},el('span',{text:'Ajudou?'}));
+    const up=el('button',{type:'button','aria-pressed':'false','aria-label':'Resposta boa',text:'👍'}),dn=el('button',{type:'button','aria-pressed':'false','aria-label':'Resposta ruim',text:'👎'});
+    const set=v=>{const e=LOG.find(x=>x.id===opts.logId);if(!e)return;e.vote=e.vote===v?null:v;up.setAttribute('aria-pressed',e.vote==='up');dn.setAttribute('aria-pressed',e.vote==='down');store.set('tira_log',LOG);renderDev()};
+    up.onclick=()=>set('up');dn.onclick=()=>set('down');fb.append(up,dn);m.append(fb);
+  }
+  logEl.append(m);logEl.scrollTop=logEl.scrollHeight;return m;
+}
+function send(text){
+  text=text.trim();if(!text)return;addMsg('user',text);input.value='';
+  const t=el('div',{class:'msg bot'},el('div',{class:'bubble typing'},el('i'),el('i'),el('i')));logEl.append(t);logEl.scrollTop=logEl.scrollHeight;
+  setTimeout(()=>{
+    t.remove();const r=answer(text);const id=Date.now()+'-'+Math.random().toString(36).slice(2,6);
+    LOG.push({id,ts:new Date().toISOString(),q:text,a:r.res.text,rule:r.id,score:r.score,fallback:r.fallback,cands:r.cands.map(c=>c.id+' ('+c.score+')').join(' | '),vote:null});
+    if(LOG.length>300)LOG=LOG.slice(-300);store.set('tira_log',LOG);
+    addMsg('bot',r.res.text,{lines:r.res.lines,open:r.res.open,logId:id});renderDev();
+  },450);
+}
+$('#chatForm').onsubmit=e=>{e.preventDefault();send(input.value)};
+['Linhas mais cheias','Itinerário da 4313-10','Linhas para Itaquera','Quais são as noturnas?','História do terminal','Quanto tempo até o centro?'].forEach(s=>{const b=el('button',{type:'button',text:s});b.onclick=()=>send(s);$('#sugg').append(b)});
+const greet=()=>addMsg('bot','Olá! Eu sou o Tira. Pergunte sobre as linhas do Terminal Cidade Tiradentes: destinos, itinerários, as mais cheias, linhas noturnas ou a história do bairro.');
+greet();
+let clrArmed=false,clrTimer;
+$('#clearChat').onclick=function(){
+  if(!clrArmed){clrArmed=true;this.textContent='Confirmar exclusão';clearTimeout(clrTimer);clrTimer=setTimeout(()=>{clrArmed=false;this.textContent='Limpar conversa'},3000);return}
+  clearTimeout(clrTimer);clrArmed=false;this.textContent='Limpar conversa';logEl.replaceChildren();greet();input.focus();
+};
+
+/* ============ PAINEL DEV ============ */
+function openDev(){renderDev();drawer.classList.add('open');scrim.classList.add('open');drawer.setAttribute('aria-hidden','false')}
+function closeDev(){drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');if(!lineDrawer.classList.contains('open'))scrim.classList.remove('open')}
+$('#openDev').onclick=openDev;$('#closeDev').onclick=closeDev;
+scrim.onclick=()=>{closeDev();closeLine()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeDev();closeLine();if(chat.classList.contains('open'))closeChat()}});
+
+function syncAlgoUI(){
+  $('#cfgMinPts').value=ALGO.minPts; $('#valMinPts').textContent=ALGO.minPts+' pts';
+  $('#cfgExactDest').value=ALGO.exactDest; $('#valExactDest').textContent=ALGO.exactDest+' pts';
+  $('#cfgGeneric').value=ALGO.genericFactor; $('#valGeneric').textContent=ALGO.genericFactor+'x';
+  $('#cfgCompound').value=ALGO.compoundPenalty; $('#valCompound').textContent=ALGO.compoundPenalty+'x';
+}
+
+function updateAlgo(key,val){
+  ALGO[key]=parseFloat(val);
+  store.set('tira_algo',ALGO);
+  syncAlgoUI();
+  const st=$('#algoStatus');
+  st.textContent='Atualizado ao vivo ('+new Date().toLocaleTimeString('pt-BR')+').';
+  renderDev();
+}
+
+$('#cfgMinPts').oninput=e=>updateAlgo('minPts',e.target.value);
+$('#cfgExactDest').oninput=e=>updateAlgo('exactDest',e.target.value);
+$('#cfgGeneric').oninput=e=>updateAlgo('genericFactor',e.target.value);
+$('#cfgCompound').oninput=e=>updateAlgo('compoundPenalty',e.target.value);
+$('#resetAlgo').onclick=()=>{
+  ALGO=Object.assign({},DEFAULT_ALGO);
+  store.set('tira_algo',ALGO);
+  syncAlgoUI();
+  $('#algoStatus').textContent='Parâmetros restaurados para o padrão.';
+  renderDev();
+};
+
+function applyLiveCorrection(questionText, newAnswerText, logEntryId){
+  const nq=norm(questionText);
+  if(nq){
+    OVERRIDES[nq]={q:questionText,answer:newAnswerText,updatedAt:new Date().toISOString()};
+    store.set('tira_overrides',OVERRIDES);
+  }
+  LOG.forEach(item=>{
+    if(item.id===logEntryId || norm(item.q)===nq){
+      item.corrected=true;
+      if(item.vote==='down')item.vote='up';
+    }
+  });
+  store.set('tira_log',LOG);
+  renderDev();
+}
+
+function renderDev(){
+  syncAlgoUI();
+  const down=LOG.filter(e=>e.vote==='down'),fb=LOG.filter(e=>e.fallback);
+  const st=$('#stats');st.replaceChildren();
+  [[LOG.length,'perguntas'],[LOG.filter(e=>e.vote==='up').length,'👍'],[down.length,'👎'],[fb.length,'sem resposta']].forEach(s=>st.append(el('div',{},el('b',{text:s[0]}),el('span',{text:s[1]}))));
+  const f=$('#fails');f.replaceChildren();
+  const bad=LOG.filter(e=>e.vote==='down'||e.fallback||e.corrected).slice().reverse();
+  if(!bad.length)f.append(el('div',{class:'empty',text:'Nenhuma falha registrada ainda. Dê 👎 em uma resposta ruim no chat ou faça uma pergunta sem resposta para editá-la aqui.'}));
+  bad.forEach(e=>{
+    const res=el('div',{class:'res',hidden:''});
+    const editArea=el('div',{class:'edit-box',hidden:''});
+    const ta=el('textarea',{rows:'3'},e.a);
+    const saveEdit=el('button',{class:'btn sm',type:'button',text:'Salvar e aplicar ao vivo'});
+    const cancelEdit=el('button',{class:'btn ghost sm',type:'button',text:'Cancelar'});
+    saveEdit.onclick=()=>{
+      const val=ta.value.trim();
+      if(!val)return;
+      applyLiveCorrection(e.q, val, e.id);
+    };
+    cancelEdit.onclick=()=>{editArea.hidden=true};
+    editArea.append(el('small',{text:'Nova resposta para: "'+e.q+'"'}),ta,el('div',{class:'acts'},saveEdit,cancelEdit));
+
+    const editBtn=el('button',{class:'btn sm',type:'button',text:'Editar resposta'});
+    editBtn.onclick=()=>{editArea.hidden=!editArea.hidden;if(!editArea.hidden)ta.focus()};
+
+    const test=el('button',{class:'btn ghost sm',type:'button',text:'Testar agora'});
+    test.onclick=()=>{
+      const r=answer(e.q);
+      res.hidden=false;
+      res.textContent=(r.fallback?'Ainda sem resposta: ':'Resultado ao vivo ('+r.id+', '+r.score+' pts): ')+r.res.text;
+    };
+
+    const badge=e.corrected
+      ? el('span',{class:'badge-ok',text:'✓ Corrigida ao vivo'})
+      : el('span',{class:'tag '+(e.vote==='down'?'red':''),text:e.vote==='down'?'👎 Resposta errada':'Sem correspondência'});
+
+    f.append(el('div',{class:'fail'},
+      el('div',{class:'tags'},badge),
+      el('q',{text:e.q}),
+      el('small',{text:'Resposta atual: '+e.a}),
+      el('small',{text:'Regra: '+e.rule+' · '+e.score+' pts · Candidatas: '+(e.cands||'nenhuma')}),
+      el('div',{class:'acts'},editBtn,test),
+      editArea,
+      res));
+  });
+
+  const rl=$('#rules');rl.replaceChildren();
+  const ovKeys=Object.keys(OVERRIDES);
+  ovKeys.forEach(k=>{
+    const item=OVERRIDES[k];
+    const rm=el('button',{class:'btn ghost sm',type:'button',text:'Remover'});
+    rm.onclick=()=>{delete OVERRIDES[k];store.set('tira_overrides',OVERRIDES);renderDev()};
+    rl.append(el('div',{class:'rule'},el('div',{},el('b',{text:'[Correção Exata] '+item.q}),el('small',{text:item.answer})),rm));
+  });
+  RULES.forEach(r=>{
+    const rm=el('button',{class:'btn ghost sm',type:'button',text:'Remover'});
+    rm.onclick=()=>{RULES=RULES.filter(x=>x.id!==r.id);store.set('tira_rules',RULES);renderDev()};
+    rl.append(el('div',{class:'rule'},el('div',{},el('b',{text:r.raw}),el('small',{text:r.answer})),rm));
+  });
+}
+
+$('#ruleForm').onsubmit=e=>{
+  e.preventDefault();const msg=$('#ruleMsg'),raw=$('#rk').value.trim(),ans=$('#ra').value.trim();
+  if(!raw||!ans){msg.textContent='Preencha as palavras-chave e a resposta.';return}
+  const kw=raw.split(',').map(s=>s.trim()).filter(Boolean).map(s=>{const strong=s.endsWith('+');const p=norm(s.replace(/\+$/,''));return[p,strong?4:2]}).filter(k=>k[0]);
+  RULES.push({id:Date.now().toString(36),raw,kw,answer:ans});store.set('tira_rules',RULES);
+  $('#rk').value='';$('#ra').value='';msg.textContent='Regra salva e ativa imediatamente no Tira!';renderDev();
+};
+
+function buildCsv(){
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const fbk=e=>e.corrected?'corrigido':e.vote==='down'?'negativo':e.vote==='up'?'positivo':e.fallback?'sem_resposta':'';
+  return ['data_hora,pergunta,resposta,regra,pontuacao,feedback',...LOG.map(e=>[e.ts,e.q,e.a,e.rule,e.score,fbk(e)].map(q).join(','))].join('\n');
+}
+$('#showCsv').onclick=()=>{const t=$('#csv');t.value=buildCsv();t.hidden=false};
+$('#copyCsv').onclick=async()=>{const t=$('#csv');t.value=buildCsv();t.hidden=false;const b=$('#copyCsv');
+  try{await navigator.clipboard.writeText(t.value);b.textContent='Copiado'}catch(e){t.select();b.textContent='Selecionado, use Ctrl+C'}
+  setTimeout(()=>b.textContent='Copiar CSV',2200)};
+let armed=false;
+$('#clearLog').onclick=function(){
+  if(!armed){armed=true;this.textContent='Confirmar limpeza';setTimeout(()=>{armed=false;this.textContent='Limpar histórico'},3000);return}
+  LOG=[];store.set('tira_log',LOG);armed=false;this.textContent='Limpar histórico';$('#csv').hidden=true;renderDev();
+};
+
+window.addEventListener('storage',e=>{
+  if(e.key==='tira_overrides')OVERRIDES=store.get('tira_overrides',{});
+  if(e.key==='tira_rules')RULES=store.get('tira_rules',[]);
+  if(e.key==='tira_algo')ALGO=Object.assign({},DEFAULT_ALGO,store.get('tira_algo',{}));
+  if(e.key==='tira_log')LOG=store.get('tira_log',[]);
+  renderDev();
+});
+
+// Dark Mode init & toggle
+const themeBtn=$('#themeToggle');
+function setTheme(dark){
+  if(dark){
+    document.documentElement.setAttribute('data-theme','dark');
+    themeBtn.textContent='☀️ Claro';
+    store.set('tira_dark',true);
+  }else{
+    document.documentElement.removeAttribute('data-theme');
+    themeBtn.textContent='🌙 Escuro';
+    store.set('tira_dark',false);
+  }
+}
+const savedDark=store.get('tira_dark', window.matchMedia('(prefers-color-scheme: dark)').matches);
+setTheme(savedDark);
+themeBtn.onclick=()=>setTheme(!document.documentElement.hasAttribute('data-theme'));
+
+renderDev();
+</script>
+</body>
+</html>
