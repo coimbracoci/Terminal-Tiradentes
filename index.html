@@ -184,8 +184,9 @@ section.block{padding-block:44px}
 .ov-active-bar small{color:var(--board-dim)}
 .map-canvas{width:100%;height:440px;border-radius:14px;border:2px solid var(--line);z-index:1;background:var(--tint)}
 .map-status{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;font-size:.84rem;color:var(--ink-soft);background:var(--bg);padding:10px 14px;border-radius:12px;border:1px solid var(--line)}
-.bus-pin{background:var(--btn);color:#fff;font-weight:700;font-size:.74rem;padding:3px 7px;border-radius:7px;border:2px solid #fff;box-shadow:0 3px 8px rgba(0,0,0,.38);white-space:nowrap;text-align:center}
-.bus-pin.volta{background:#1d4ed8}
+.bus-pin{background:#f97316;color:#fff;font-weight:700;font-size:.74rem;padding:4px 8px;border-radius:999px;border:2.5px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.42);white-space:nowrap;text-align:center;display:inline-flex;align-items:center;gap:4px}
+.bus-pin.volta{background:#ea580c}
+.route-end-pin{width:14px;height:14px;border-radius:50%;background:#f97316;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
 
 footer{border-top:1px solid var(--line);padding-block:30px 110px;color:var(--ink-soft);font-size:.9rem;margin-top:24px}
 footer .wrap{display:grid;gap:14px}
@@ -596,13 +597,172 @@ const $ = (s,r=document)=>r.querySelector(s);
 const el = (t,a={},...kids)=>{const e=document.createElement(t);for(const k in a){if(k==='class')e.className=a[k];else if(k==='text')e.textContent=a[k];else e.setAttribute(k,a[k])}kids.flat().forEach(c=>c!=null&&e.append(c.nodeType?c:document.createTextNode(c)));return e};
 const plate = (l,lg)=>el('span',{class:'plate'+(l.night?' night':'')+(lg?' lg':''),text:l.code});
 
-/* ============ MAPA OLHO VIVO (BUSCA -> 2 SENTIDOS -> MAPA) ============ */
-let ovMap=null, ovMarkers=[], ovTimer=null, ovActiveChoice=null;
+/* ============ MAPA OLHO VIVO (BUSCA -> 2 SENTIDOS -> MAPA + TRAÇADO LARANJA) ============ */
+let ovMap=null, ovMarkers=[], ovRouteLayers=[], ovTimer=null, ovActiveChoice=null, ovCurrentCoords=[];
 const TCT_COORDS=[-23.5977,-46.4024];
+const ROUTE_CACHE=store.get('tira_route_geom',{});
+
+// Pontos geográficos de referência das vias, bairros, terminais e estações das 27 linhas
+const WAYPOINT_COORDS={
+  tct:[-23.5977,-46.4024],
+  metalurgicos:[-23.6022,-46.3992],
+  barro_branco:[-23.6008,-46.3918],
+  texteis:[-23.5956,-46.3964],
+  sara_kubitscheck:[-23.5924,-46.3982],
+  souza_ramos:[-23.5892,-46.4036],
+  marcio_beck:[-23.5858,-46.4084],
+  iguatemi_sul:[-23.5844,-46.4148],
+  iguatemi_norte:[-23.5682,-46.4165],
+  ragueb_leste:[-23.5838,-46.4328],
+  ragueb_oeste:[-23.5846,-46.4532],
+  jacu_sul:[-23.5742,-46.4568],
+  jacu_norte:[-23.5535,-46.4572],
+  john_speers:[-23.5625,-46.4622],
+  av_lider:[-23.5512,-46.4715],
+  metro_itaquera:[-23.5422,-46.4711],
+  cptm_guaianases:[-23.5424,-46.4156],
+  inacio_monteiro:[-23.5762,-46.4052],
+  vila_yolanda:[-23.5685,-46.3968],
+  santa_etelvina:[-23.5882,-46.3935],
+  setor_iib:[-23.5835,-46.4095],
+  vila_paulista:[-23.5915,-46.3925],
+  sao_miguel:[-23.4926,-46.4408],
+  guilhermina:[-23.5293,-46.5166],
+  metro_penha:[-23.5335,-46.5424],
+  aricanduva:[-23.5612,-46.5125],
+  metro_tatuape:[-23.5403,-46.5766],
+  metro_bresser:[-23.5464,-46.6072],
+  pq_dom_pedro:[-23.5489,-46.6295],
+  term_sao_mateus:[-23.6126,-46.4774]
+};
+
+// Sequência de pontos de passagem de cada uma das 27 linhas (Ida: TCT -> Destino | Volta: Destino -> TCT)
+function getLineWaypoints(lineObj, direction){
+  const c = lineObj.code;
+  const W = WAYPOINT_COORDS;
+  let ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul];
+
+  if(c==='3787-10'){
+    ida = [W.metalurgicos, W.tct, W.iguatemi_sul, W.ragueb_leste, W.ragueb_oeste, W.jacu_sul, W.jacu_norte, W.metro_itaquera];
+  } else if(c==='3785-10'){
+    ida = [W.barro_branco, W.texteis, W.sara_kubitscheck, W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.ragueb_leste, W.ragueb_oeste, W.jacu_sul, W.jacu_norte, W.metro_itaquera];
+  } else if(c==='3789-10'){
+    ida = [W.metalurgicos, W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.ragueb_leste, W.ragueb_oeste, W.jacu_sul, W.john_speers, W.av_lider, W.metro_itaquera];
+  } else if(c==='407P-10'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.iguatemi_norte, W.cptm_guaianases, W.metro_itaquera, W.guilhermina, W.metro_penha, W.metro_tatuape];
+  } else if(c==='407L-10'){
+    ida = [W.barro_branco, W.texteis, W.sara_kubitscheck, W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.iguatemi_norte, W.cptm_guaianases, W.metro_itaquera, W.guilhermina];
+  } else if(c==='407N-10'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.ragueb_leste, W.ragueb_oeste, W.aricanduva, W.metro_penha];
+  } else if(c==='4313-10' || c==='4210-10'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.ragueb_leste, W.ragueb_oeste, W.aricanduva, W.metro_tatuape, W.metro_bresser, W.pq_dom_pedro];
+  } else if(c==='3539-10'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.ragueb_leste, W.ragueb_oeste, W.aricanduva, W.metro_tatuape, W.metro_bresser];
+  } else if(c==='3064-10'){
+    ida = [W.metalurgicos, W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.iguatemi_norte, W.cptm_guaianases];
+  } else if(c==='N437-11'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.iguatemi_norte, W.cptm_guaianases];
+  } else if(c==='N403-11'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.iguatemi_norte, W.cptm_guaianases, W.metro_itaquera];
+  } else if(c==='312N-10'){
+    ida = [W.tct, W.souza_ramos, W.inacio_monteiro, W.cptm_guaianases, W.sao_miguel];
+  } else if(c==='4018-10'){
+    ida = [W.metalurgicos, W.tct, W.iguatemi_sul, W.ragueb_leste, W.term_sao_mateus];
+  } else if(c==='N406-11'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.iguatemi_sul, W.ragueb_leste, W.term_sao_mateus];
+  } else if(c==='3013-10' || c==='N435-11'){
+    ida = [W.tct, W.metalurgicos, [-23.6062,-46.4045], [-23.6015,-46.4068], W.tct];
+  } else if(c==='4004-10' || c==='4005-10' || c==='N436-11'){
+    ida = [W.tct, W.texteis, W.barro_branco, W.sara_kubitscheck, W.tct];
+  } else if(c==='3019-10'){
+    ida = [W.tct, W.souza_ramos, W.vila_paulista, W.sara_kubitscheck, W.tct];
+  } else if(c==='3064-41'){
+    ida = [W.tct, W.souza_ramos, W.santa_etelvina, W.marcio_beck, W.tct];
+  } else if(c==='4092-10'){
+    ida = [W.tct, W.souza_ramos, W.marcio_beck, W.setor_iib, W.iguatemi_sul, W.tct];
+  } else if(c==='4086-10' || c==='4093-10'){
+    ida = [W.tct, W.metalurgicos, W.souza_ramos, W.texteis, W.tct];
+  } else if(c==='4017-10'){
+    ida = [W.metalurgicos, W.tct, W.souza_ramos, W.inacio_monteiro, W.vila_yolanda];
+  } else if(c==='N441-11'){
+    ida = [W.tct, W.souza_ramos, W.inacio_monteiro, W.vila_yolanda];
+  }
+
+  return direction === 1 ? ida : ida.slice().reverse();
+}
+
+async function fetchRoadGeometry(lineObj, direction){
+  const cacheKey = `${lineObj.code}_${direction}`;
+  if(ROUTE_CACHE[cacheKey] && ROUTE_CACHE[cacheKey].length > 2){
+    return ROUTE_CACHE[cacheKey];
+  }
+  const wps = getLineWaypoints(lineObj, direction);
+  const coordStr = wps.map(p => `${p[1]},${p[0]}`).join(';');
+  try{
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5500);
+    const resp = await fetch(`https://router.project-osrm.org/route/v1/driving/${coordStr}?overview=full&geometries=geojson`, {signal: ctrl.signal});
+    clearTimeout(timer);
+    if(!resp.ok) throw new Error('OSRM HTTP ' + resp.status);
+    const data = await resp.json();
+    const coords = data?.routes?.[0]?.geometry?.coordinates;
+    if(Array.isArray(coords) && coords.length > 2){
+      const latLngs = coords.map(c => [c[1], c[0]]);
+      ROUTE_CACHE[cacheKey] = latLngs;
+      store.set('tira_route_geom', ROUTE_CACHE);
+      return latLngs;
+    }
+  }catch(e){}
+  return wps;
+}
+
+function drawOrangeRouteOnMap(coords, lineObj, direction){
+  if(!ovMap || !coords || !coords.length) return;
+  ovRouteLayers.forEach(layer => ovMap.removeLayer(layer));
+  ovRouteLayers = [];
+  ovCurrentCoords = coords;
+
+  // Contorno branco sob a linha laranja (igual ao visual da imagem de referência)
+  const casing = L.polyline(coords, {
+    color: '#ffffff',
+    weight: 9,
+    opacity: 0.92,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(ovMap);
+
+  // Traçado laranja vibrante do trajeto da linha (Ida ou Volta)
+  const routeLine = L.polyline(coords, {
+    color: '#f97316',
+    weight: 5.5,
+    opacity: 0.98,
+    lineCap: 'round',
+    lineJoin: 'round'
+  }).addTo(ovMap);
+
+  const origLabel = direction === 1 ? lineObj.from : lineObj.to;
+  const destLabel = direction === 1 ? lineObj.to : lineObj.from;
+  routeLine.bindPopup(`<b>Linha ${lineObj.code}</b><br>Trajeto ${direction===1?'Ida':'Volta'}: ${origLabel} → ${destLabel}`);
+
+  const startDot = L.marker(coords[0], {
+    icon: L.divIcon({className:'', html:'<div class="route-end-pin" title="Início do trajeto"></div>', iconSize:[14,14], iconAnchor:[7,7]})
+  }).addTo(ovMap).bindPopup(`<b>Início (${direction===1?'Ida':'Volta'})</b><br>${origLabel}`);
+
+  const endDot = L.marker(coords[coords.length - 1], {
+    icon: L.divIcon({className:'', html:'<div class="route-end-pin" title="Ponto final"></div>', iconSize:[14,14], iconAnchor:[7,7]})
+  }).addTo(ovMap).bindPopup(`<b>Destino (${direction===1?'Ida':'Volta'})</b><br>${destLabel}`);
+
+  ovRouteLayers.push(casing, routeLine, startDot, endDot);
+  if(coords.length > 1){
+    ovMap.fitBounds(routeLine.getBounds(), {padding:[36,36], maxZoom:15});
+  }
+}
 
 function destroyOvMap(){
   if(ovTimer){clearInterval(ovTimer);ovTimer=null;}
   ovMarkers=[];
+  ovRouteLayers=[];
+  ovCurrentCoords=[];
   if(ovMap){ovMap.remove();ovMap=null;}
 }
 
@@ -615,7 +775,7 @@ function createOvMap(container){
     attribution:'&copy; OpenStreetMap | SPTrans Olho Vivo'
   }).addTo(ovMap);
 
-  L.circleMarker(TCT_COORDS,{radius:9,fillColor:'#c92a30',color:'#fff',weight:2,fillOpacity:1})
+  L.circleMarker(TCT_COORDS,{radius:8,fillColor:'#c92a30',color:'#fff',weight:2.5,fillOpacity:1})
     .addTo(ovMap)
     .bindPopup('<b>Terminal Cidade Tiradentes</b><br>Ponto de referência do terminal');
 }
@@ -627,29 +787,37 @@ function plotOvVehicles(vehicles, direction){
   const bounds=[];
   vehicles.forEach(v=>{
     const cls = direction===2 ? 'bus-pin volta' : 'bus-pin';
-    const icon=L.divIcon({className:'',html:`<div class="${cls}">🚌 ${v.linha}</div>`,iconSize:[76,24],iconAnchor:[38,12]});
+    const icon=L.divIcon({className:'',html:`<div class="${cls}">🚌 ${v.linha}</div>`,iconSize:[78,26],iconAnchor:[39,13]});
     const m=L.marker([v.py,v.px],{icon}).addTo(ovMap);
     m.bindPopup(`<b>Linha ${v.linha}</b><br>Sentido: <b>${direction===1?'Ida ('+v.destino+')':'Volta ('+v.destino+')'}</b><br>Prefixo do carro: ${v.p}<br><small>Atualizado: ${v.ta||new Date().toLocaleTimeString('pt-BR')}</small>`);
     ovMarkers.push(m);
     bounds.push([v.py,v.px]);
   });
-  if(bounds.length>1) ovMap.fitBounds(bounds,{padding:[35,35],maxZoom:15});
-  else if(bounds.length===1) ovMap.setView(bounds[0], 15);
+  if(ovRouteLayers.length > 1 && ovRouteLayers[1].getBounds){
+    const routeBounds = ovRouteLayers[1].getBounds();
+    bounds.forEach(b => routeBounds.extend(b));
+    ovMap.fitBounds(routeBounds, {padding:[36,36], maxZoom:15});
+  } else if(bounds.length>1){
+    ovMap.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+  } else if(bounds.length===1){
+    ovMap.setView(bounds[0], 15);
+  }
 }
 
 function generateSimVehicles(lineObj, direction){
   const destLabel = direction===1 ? lineObj.to : lineObj.from;
+  const path = ovCurrentCoords.length >= 2 ? ovCurrentCoords : getLineWaypoints(lineObj, direction);
   const list=[];
-  for(let i=0;i<3;i++){
-    const dirSign = direction===1 ? 1 : -1;
-    const latOffset = dirSign * (0.004 + i*0.006) + Math.sin(Date.now()/5000 + i)*0.002;
-    const lngOffset = dirSign * (-0.005 - i*0.007) + Math.cos(Date.now()/5000 + i)*0.002;
+  const fractions = [0.18, 0.52, 0.84];
+  for(let i=0;i<fractions.length;i++){
+    const idx = Math.min(path.length - 1, Math.max(0, Math.floor((path.length - 1) * fractions[i])));
+    const pt = path[idx] || TCT_COORDS;
     list.push({
       linha:lineObj.code,
       p:'4'+Math.floor(1100+Math.random()*8800),
       destino:destLabel,
-      py:TCT_COORDS[0]+latOffset,
-      px:TCT_COORDS[1]+lngOffset,
+      py:pt[0],
+      px:pt[1],
       ta:new Date().toLocaleTimeString('pt-BR')
     });
   }
@@ -666,7 +834,7 @@ async function loadDirectionOnMap(lineObj, direction, mapStageEl){
     el('div',{class:'ov-active-bar'},
       el('div',{},
         el('strong',{text:`${lineObj.code} · Sentido ${direction}: ${origLabel} → ${destLabel}`}),
-        el('small',{text:direction===1?'Sentido Principal (Ida)':'Sentido Secundário (Retorno)'})
+        el('small',{text:direction===1?'Sentido Principal (Ida) · Traçado laranja ativo':'Sentido Secundário (Volta) · Traçado laranja ativo'})
       ),
       el('div',{style:'display:flex;gap:8px;flex-wrap:wrap'},
         (()=>{
@@ -683,12 +851,14 @@ async function loadDirectionOnMap(lineObj, direction, mapStageEl){
     ),
     el('div',{id:'ovMapCanvas',class:'map-canvas'}),
     el('div',{class:'map-status'},
-      el('span',{id:'ovStatus',text:'⏳ Buscando posições GPS dos ônibus deste sentido...'}),
+      el('span',{id:'ovStatus',text:'⏳ Traçando itinerário e buscando posições GPS dos ônibus...'}),
       el('a',{href:`https://olhovivo.sptrans.com.br/#sp?cat=Linha&l=${encodeURIComponent(lineObj.code.split('-')[0])}`,target:'_blank',rel:'noopener',text:'Abrir referência no Olho Vivo SPTrans ↗'})
     )
   );
 
   createOvMap($('#ovMapCanvas'));
+  const routeCoords = await fetchRoadGeometry(lineObj, direction);
+  drawOrangeRouteOnMap(routeCoords, lineObj, direction);
   await fetchAndRenderDirection(lineObj, direction);
 
   if(ovTimer) clearInterval(ovTimer);
@@ -707,12 +877,11 @@ async function fetchAndRenderDirection(lineObj, direction){
     if(!resp.ok || data.error) throw new Error(data.error || ('HTTP '+resp.status));
     const vehicles = (data.vehicles || []).map(v=>Object.assign({}, v, {destino: v.destino || destLabel}));
     plotOvVehicles(vehicles, direction);
-    statusEl.textContent = `✅ ${vehicles.length} ônibus localizado(s) no sentido ${destLabel} às ${new Date().toLocaleTimeString('pt-BR')} (atualiza a cada 30s).`;
+    statusEl.textContent = `✅ Trajeto ${direction===1?'Ida':'Volta'} exibido · ${vehicles.length} ônibus localizado(s) no sentido ${destLabel} às ${new Date().toLocaleTimeString('pt-BR')} (atualiza a cada 30s).`;
   }catch(err){
-    // Se o backend Flask/SPTrans não estiver ativo ou sem veículos na hora, exibe simulação fiel para visualização imediata
     const sim = generateSimVehicles(lineObj, direction);
     plotOvVehicles(sim, direction);
-    statusEl.textContent = `🟡 Exibindo ${sim.length} ônibus simulados no sentido ${destLabel} (servidor local/SPTrans offline: ${err.message}).`;
+    statusEl.textContent = `🟠 Trajeto ${direction===1?'Ida':'Volta'} exibido · ${sim.length} ônibus posicionados no sentido ${destLabel} (modo offline/simulação).`;
   }
 }
 
@@ -838,9 +1007,8 @@ let drawLines=()=>{}, setFilter=()=>{};
           return;
         }
 
-        // Se encontrou mais de uma linha (ex: digitou "Itaquera"), permite escolher a linha e mostra os 2 sentidos
         const targetLines = matches.slice(0, 4);
-        dirsContainer.append(el('p',{class:'help',text:`Selecione o sentido desejado para abrir o mapa em tempo real:`}));
+        dirsContainer.append(el('p',{class:'help',text:`Selecione o sentido desejado para abrir o mapa com o trajeto em tempo real:`}));
 
         targetLines.forEach(lineObj => {
           [1, 2].forEach(dir => {
@@ -852,7 +1020,7 @@ let drawLines=()=>{}, setFilter=()=>{};
                 el('div',{class:'ov-dir-info'},
                   el('span',{class:'ov-dir-badge',text:`Sentido ${dir} · ${dir===1?'Ida':'Volta'}`}),
                   el('span',{class:'ov-dir-title',text:`${orig} → ${dest}`}),
-                  el('span',{class:'ov-dir-sub',text:'Clique para visualizar os ônibus deste sentido no mapa'})
+                  el('span',{class:'ov-dir-sub',text:'Clique para visualizar o trajeto e os ônibus deste sentido no mapa'})
                 )
               ),
               el('span',{class:'ov-dir-arrow',text:'Ver no mapa →'})
@@ -891,7 +1059,7 @@ let drawLines=()=>{}, setFilter=()=>{};
       shell.append(searchBox, dirsContainer, mapStage);
       return [
         el('h3',{text:'Consulta de frota em tempo real (Estilo Olho Vivo SPTrans)'}),
-        el('p',{class:'help',text:'Pesquise uma linha do Terminal Cidade Tiradentes, aperte Enter para listar os dois sentidos e clique no sentido desejado para abrir o mapa.',style:'margin-bottom:14px'}),
+        el('p',{class:'help',text:'Pesquise uma linha do Terminal Cidade Tiradentes, aperte Enter para listar os dois sentidos e clique no sentido desejado para abrir o mapa com o trajeto.',style:'margin-bottom:14px'}),
         shell
       ];
     },
