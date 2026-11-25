@@ -1,4 +1,6 @@
 import os
+import hashlib
+from datetime import dat
 import time
 import requests
 from flask import Flask, jsonify, request, send_file
@@ -54,6 +56,40 @@ def adicionar_cabecalhos_seguranca(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
+VISITAS_STATS = {
+    "inicio_servidor": time.strftime("%d/%m/%Y às %H:%M"),
+    "total_aberturas": 0,
+    "visitantes_unicos_hoje": set(),
+    "data_atual": date.today().isoformat(),
+}
+
+
+def registrar_visita(req):
+    hoje = date.today().isoformat()
+    if VISITAS_STATS["data_atual"] != hoje:
+        VISITAS_STATS["data_atual"] = hoje
+        VISITAS_STATS["visitantes_unicos_hoje"].clear()
+
+    VISITAS_STATS["total_aberturas"] += 1
+
+    # Gera um identificador anônimo (hash) para contar visitante único no dia sem salvar IP bruto
+    ip = req.headers.get("X-Forwarded-For", req.remote_addr or "anon").split(",")[0].strip()
+    ua = req.headers.get("User-Agent", "")
+    visitor_hash = hashlib.sha256(f"{hoje}:{ip}:{ua}".encode()).hexdigest()[:16]
+    VISITAS_STATS["visitantes_unicos_hoje"].add(visitor_hash)
+@app.route("/")
+def index():
+    registrar_visita(request)
+    return send_from_directory(".", "index.html")
+
+
+@app.route("/api/visitas")
+def visitas():
+    return jsonify({
+        "aberturas": VISITAS_STATS["total_aberturas"],
+        "unicos_hoje": len(VISITAS_STATS["visitantes_unicos_hoje"]),
+        "desde": VISITAS_STATS["inicio_servidor"]
+    })
 
 @app.route("/")
 def index():
