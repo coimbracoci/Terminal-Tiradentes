@@ -1,6 +1,6 @@
 import os
 import hashlib
-from datetime import dat
+from datetime import date
 import time
 import requests
 from flask import Flask, jsonify, request, send_file
@@ -56,6 +56,7 @@ def adicionar_cabecalhos_seguranca(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
 
+
 VISITAS_STATS = {
     "inicio_servidor": time.strftime("%d/%m/%Y às %H:%M"),
     "total_aberturas": 0,
@@ -77,10 +78,6 @@ def registrar_visita(req):
     ua = req.headers.get("User-Agent", "")
     visitor_hash = hashlib.sha256(f"{hoje}:{ip}:{ua}".encode()).hexdigest()[:16]
     VISITAS_STATS["visitantes_unicos_hoje"].add(visitor_hash)
-@app.route("/")
-def index():
-    registrar_visita(request)
-    return send_from_directory(".", "index.html")
 
 
 @app.route("/api/visitas")
@@ -90,6 +87,7 @@ def visitas():
         "unicos_hoje": len(VISITAS_STATS["visitantes_unicos_hoje"]),
         "desde": VISITAS_STATS["inicio_servidor"]
     })
+
 
 @app.route("/")
 def index():
