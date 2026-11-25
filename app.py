@@ -93,6 +93,7 @@ def visitas():
 
 @app.route("/")
 def index():
+    registrar_visita(request)
     return send_file(os.path.join(BASE_DIR, "index.html"))
 
 
